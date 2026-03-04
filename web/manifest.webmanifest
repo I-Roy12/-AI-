@@ -1,0 +1,10 @@
+{
+  "name": "体調日記",
+  "short_name": "体調日記",
+  "description": "体調を記録してAI要約と医師共有に使えるアプリ",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f3f4f6",
+  "theme_color": "#2563eb",
+  "icons": []
+}

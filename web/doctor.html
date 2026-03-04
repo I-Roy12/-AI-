@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>体調日記 医師ビュー</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="container doctor-container">
+      <h1>体調日記 医師ビュー</h1>
+      <p class="sub">共有リンクから受け取った情報を、診察前に短時間で確認する画面です。</p>
+      <section class="card notice-card">
+        <p>
+          <strong>注意:</strong> 本画面は患者自己記録とAI要約を基にした補助情報です。最終判断は医師の診察所見・検査所見を優先してください。
+        </p>
+      </section>
+      <section class="card">
+        <div class="review-row">
+          <p id="doctor-me" class="last-sync">医師: -</p>
+          <button id="doctor-logout-btn" type="button">ログアウト</button>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="review-row">
+          <input id="doctor-token" placeholder="共有トークン" />
+          <button id="doctor-load-btn">情報を読み込む</button>
+        </div>
+        <p id="doctor-status" class="last-sync">未読み込み</p>
+        <p id="doctor-share-context" class="last-sync">共有種別: -</p>
+      </section>
+
+      <section class="card">
+        <h2>医師間連携（引き継ぎ）</h2>
+        <p class="sub">別の医師へ共有するための引き継ぎリンクを発行できます。</p>
+        <label>引き継ぎ先（任意）<input id="doctor-handoff-to" placeholder="例: 循環器内科 / ○○病院" /></label>
+        <label>引き継ぎメモ（任意）<textarea id="doctor-handoff-note" placeholder="紹介理由、確認してほしい点など"></textarea></label>
+        <div class="review-row">
+          <label>有効期限
+            <select id="doctor-handoff-expires">
+              <option value="12">12時間</option>
+              <option value="24" selected>24時間</option>
+              <option value="48">48時間</option>
+            </select>
+          </label>
+          <button id="doctor-handoff-create-btn" type="button">引き継ぎリンク発行</button>
+        </div>
+        <p id="doctor-handoff-status" class="last-sync">未発行</p>
+        <ul id="doctor-handoff-links" class="recent-list"><li>引き継ぎリンクはまだありません</li></ul>
+      </section>
+
+      <section class="card doctor-grid">
+        <article>
+          <h2>トリアージ</h2>
+          <p id="triage-view">-</p>
+        </article>
+        <article>
+          <h2>患者情報</h2>
+          <p id="patient-view">-</p>
+        </article>
+        <article>
+          <h2>期間</h2>
+          <p id="period-view">-</p>
+        </article>
+      </section>
+
+      <section class="card">
+        <h2>主要指標</h2>
+        <p id="metrics-view">-</p>
+      </section>
+
+      <section class="card">
+        <h2>推移グラフ（直近期間）</h2>
+        <p id="doctor-chart-status" class="last-sync">未表示</p>
+        <canvas id="doctor-trend-chart" class="trend-chart" height="220"></canvas>
+        <div class="chart-legend">
+          <span class="legend-item"><i class="dot symptom"></i>症状スコア</span>
+          <span class="legend-item"><i class="dot mood"></i>気分スコア</span>
+          <span class="legend-item"><i class="dot sleepq"></i>睡眠の質</span>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>最新記録</h2>
+        <p id="latest-view">-</p>
+      </section>
+
+      <section class="card">
+        <h2>画像メモ</h2>
+        <p id="images-status" class="last-sync">画像なし</p>
+        <div id="images-view" class="doctor-images"></div>
+      </section>
+
+      <section class="card">
+        <h2>症状頻度（上位）</h2>
+        <ul id="symptoms-view" class="recent-list"><li>-</li></ul>
+      </section>
+
+      <section class="card">
+        <h2>服薬状況</h2>
+        <p id="medication-view">-</p>
+      </section>
+
+      <section class="card">
+        <h2>メモ要約</h2>
+        <ul id="notes-view" class="recent-list"><li>-</li></ul>
+      </section>
+
+      <section class="card">
+        <h2>推奨受診先</h2>
+        <ul id="providers-view" class="recent-list"><li>-</li></ul>
+      </section>
+
+      <section class="card">
+        <h2>医師コメント（患者へ共有）</h2>
+        <label>記入者名<input id="doctor-author" value="担当医" /></label>
+        <label>コメント<textarea id="doctor-note" placeholder="診察後の所見や、次回までの注意点を入力"></textarea></label>
+        <div class="review-row">
+          <button id="doctor-save-note-btn">コメント保存</button>
+          <p id="doctor-note-status" class="last-sync">未保存</p>
+        </div>
+      </section>
+    </main>
+    <div id="image-modal" class="image-modal hidden" role="dialog" aria-modal="true">
+      <button id="image-modal-close" class="image-modal-close" type="button">閉じる</button>
+      <img id="image-modal-img" alt="拡大画像" />
+    </div>
+
+    <script src="/doctor.js" type="module"></script>
+  </body>
+</html>

@@ -1,0 +1,26 @@
+services:
+  - type: web
+    name: health-ai-core
+    env: node
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: HOST
+        value: 0.0.0.0
+      - key: DATA_DIR
+        value: /var/data
+      - key: DOCTOR_COOKIE_SECURE
+        value: "true"
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: DOCTOR_DEMO_EMAIL
+        value: doctor@example.com
+      - key: DOCTOR_DEMO_PASSWORD
+        value: doctor1234
+    disk:
+      name: health-ai-core-data
+      mountPath: /var/data
+      sizeGB: 1

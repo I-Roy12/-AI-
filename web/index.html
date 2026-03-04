@@ -1,0 +1,308 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>体調日記</title>
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content="#2563eb" />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="container">
+      <h1>体調日記</h1>
+      <p class="sub">毎日の体調を記録して、振り返りと受診共有に使うアプリです。</p>
+      <section class="card notice-card">
+        <p>
+          <strong>重要:</strong> このアプリのAI出力は診断確定ではなく、受診判断を補助する参考情報です。強い痛み・呼吸苦・意識障害など緊急症状がある場合は、すぐ医療機関へ相談してください。
+        </p>
+      </section>
+      <section class="card tab-card">
+        <div class="review-row tabs">
+          <button id="tab-record" class="tab-btn active">記録</button>
+          <button id="tab-mypage" class="tab-btn">マイページ</button>
+        </div>
+      </section>
+
+      <div id="record-page">
+      <section class="card flow-card">
+        <p><strong>Step 1:</strong> 今日の体調を入力して保存</p>
+        <p><strong>Step 2:</strong> AI要約で状態と傾向を確認</p>
+        <p><strong>Step 3:</strong> 必要なときだけ医師に共有</p>
+      </section>
+      <section class="card guide-card">
+        <p>記録は1分、共有は必要なときだけ。無理のないペースで続けられます。</p>
+        <p id="today-status" class="today-status">今日の記録: 未完了</p>
+        <div class="review-row">
+          <button id="refresh-btn">最新状態に更新</button>
+          <p id="last-sync" class="last-sync">最終更新: -</p>
+        </div>
+      </section>
+      <section class="card stats-card">
+        <p id="stats-view">連続記録 0日 / 記録日数 0日 / 総記録 0件</p>
+      </section>
+
+      <section class="card">
+        <h2>今日の記録</h2>
+        <p id="editing-status" class="last-sync">新規記録モード</p>
+        <form id="log-form">
+          <input name="user_id" value="u_123" required type="hidden" />
+          <input name="recorded_at" value="2026-02-27T09:15:00+09:00" required type="hidden" />
+          <label>症状（カンマ区切り）<input name="symptoms" value="頭痛,不眠" required /></label>
+          <div class="chips">
+            <p class="chips-title">症状をタップして追加</p>
+            <button type="button" class="chip symptom-chip" data-symptom="頭痛">頭痛</button>
+            <button type="button" class="chip symptom-chip" data-symptom="不眠">不眠</button>
+            <button type="button" class="chip symptom-chip" data-symptom="だるさ">だるさ</button>
+            <button type="button" class="chip symptom-chip" data-symptom="不安感">不安感</button>
+            <button type="button" class="chip symptom-chip" data-symptom="吐き気">吐き気</button>
+            <button type="button" class="chip symptom-chip" data-symptom="かゆみ">かゆみ</button>
+          </div>
+
+          <div class="slider-wrap">
+            <label for="symptom_score">つらさゲージ</label>
+            <div class="slider-row">
+              <input id="symptom_score" name="symptom_score" type="range" min="0" max="10" value="6" />
+              <span class="meter" data-for="symptom_score">6</span>
+            </div>
+          </div>
+
+          <div class="slider-wrap">
+            <label for="mood_score">気分ゲージ</label>
+            <div class="slider-row">
+              <input id="mood_score" name="mood_score" type="range" min="0" max="10" value="4" />
+              <span class="meter" data-for="mood_score">4</span>
+            </div>
+          </div>
+
+          <label>睡眠時間<input name="sleep_hours" type="number" step="0.5" value="5.5" required /></label>
+
+          <div class="slider-wrap">
+            <label for="sleep_quality_score">睡眠の質ゲージ</label>
+            <div class="slider-row">
+              <input id="sleep_quality_score" name="sleep_quality_score" type="range" min="0" max="10" value="3" />
+              <span class="meter" data-for="sleep_quality_score">3</span>
+            </div>
+          </div>
+
+          <div class="chips">
+            <p class="chips-title">今の気分をタップ（メモに追記されます）</p>
+            <button type="button" class="chip" data-chip="ちょっとしんどい">ちょっとしんどい</button>
+            <button type="button" class="chip" data-chip="ぼちぼち">ぼちぼち</button>
+            <button type="button" class="chip" data-chip="わりと元気">わりと元気</button>
+            <button type="button" class="chip" data-chip="不安強め">不安強め</button>
+          </div>
+
+          <label>
+            服薬
+            <select name="medication_status">
+              <option value="taken" selected>飲んだ</option>
+              <option value="missed">飲み忘れ</option>
+              <option value="none">なし</option>
+            </select>
+          </label>
+          <label>ひとことメモ<textarea name="note">午後にだるさが強い</textarea></label>
+          <div class="image-box">
+            <p class="chips-title">画像メモ（任意）</p>
+            <div class="review-row">
+              <input id="log-image-input" type="file" accept="image/*" />
+              <button type="button" id="log-image-clear-btn">画像を外す</button>
+            </div>
+            <p id="log-image-status" class="last-sync">未添付</p>
+            <img id="log-image-preview" class="log-image-preview hidden" alt="添付画像プレビュー" />
+          </div>
+          <div class="voice-box">
+            <p class="chips-title">音声入力（対応ブラウザのみ）</p>
+            <div class="review-row">
+              <select id="voice-mode">
+                <option value="note" selected>メモに追記</option>
+                <option value="command">コマンド入力</option>
+              </select>
+              <button type="button" id="voice-btn" title="その場で話して文字入力します">🎤 その場で話す</button>
+              <button type="button" id="voice-file-btn" title="録音済みファイルを選んで文字入力します">📎 ファイルから入力</button>
+              <input id="voice-file-input" type="file" accept="audio/*" capture class="hidden" />
+            </div>
+            <div class="voice-methods">
+              <p><strong>🎤 その場で話す:</strong> マイクで今話した内容を入力（Chrome推奨）</p>
+              <p><strong>📎 ファイルから入力:</strong> 録音済みファイルを選択して入力（文字起こし設定が必要）</p>
+            </div>
+            <p id="voice-status" class="voice-status">待機中です。</p>
+            <p id="voice-route" class="voice-help">追記先: 今日の記録 ＞ ひとことメモ</p>
+            <p id="voice-last" class="voice-status">最新の音声: まだありません</p>
+            <div id="voice-alt-box" class="voice-alt-box"></div>
+            <p class="voice-help">
+              コマンド例: 「つらさ7」「気分3」「睡眠6.5」「頭痛 追加」「保存して」
+            </p>
+          </div>
+          <div class="review-row">
+            <button type="button" id="reset-btn">入力をリセット</button>
+          </div>
+          <button type="submit">この内容で記録する</button>
+        </form>
+      </section>
+
+      <section class="card grid">
+        <button id="insight-refresh-btn">AI要約を更新</button>
+        <button id="match-btn">相談先候補を表示</button>
+      </section>
+
+      <section class="card">
+        <h2>受診予約サポート</h2>
+        <p class="sub">相談先候補を表示すると、予約導線（Web/電話）がここに出ます。</p>
+        <div id="reservation-view" class="reservation-view">まだ候補はありません。「相談先候補を表示」を押してください。</div>
+      </section>
+
+      <section class="card grid insight-grid">
+        <article>
+          <h3>今日のまとめ</h3>
+          <p id="summary-view">まだありません</p>
+        </article>
+        <article>
+          <h3>最近の傾向</h3>
+          <p id="trend-view">まだありません</p>
+        </article>
+        <article>
+          <h3>次の一歩</h3>
+          <p id="next-step-view">まだありません</p>
+        </article>
+      </section>
+      <section class="card">
+        <h2>共有メモ</h2>
+        <p class="sub">受診時に伝える内容を短くまとめてコピーできます。</p>
+        <div class="review-row">
+          <button id="copy-share-btn">共有メモをコピー</button>
+          <p id="copy-status" class="last-sync">未コピー</p>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>気になる文の安全チェック</h2>
+        <textarea id="safety-text" placeholder="不安な症状や気になる文を入力"></textarea>
+        <button id="safety-btn">チェックする</button>
+        <p id="safety-status" class="safety-status">安全チェック待ちです。</p>
+      </section>
+
+      <section class="card">
+        <h2>AIからの返答</h2>
+        <p id="ai-message" class="ai-message">ここに読みやすい返答が出ます。</p>
+        <div class="review-row">
+          <button id="speak-btn">🔊 読み上げ</button>
+          <button id="stop-speak-btn">■ 停止</button>
+          <label class="tts-auto"><input type="checkbox" id="auto-speak" /> 自動読み上げ</label>
+        </div>
+        <pre id="output" class="hidden">{}</pre>
+      </section>
+
+      <section class="card">
+        <h2>最近の記録</h2>
+        <ul id="recent-list" class="recent-list">
+          <li>まだ記録はありません</li>
+        </ul>
+      </section>
+      </div>
+
+      <div id="mypage-page" class="hidden">
+      <section class="card">
+        <h2>マイプロフィール</h2>
+        <form id="profile-form">
+          <label>表示名<input name="display_name" placeholder="例: たろう" /></label>
+          <label>身長(cm)<input name="height_cm" type="number" min="50" max="260" step="0.1" /></label>
+          <label>体重(kg)<input name="weight_kg" type="number" min="10" max="300" step="0.1" /></label>
+          <label>生年月日<input name="birth_date" type="date" /></label>
+          <label>
+            性別
+            <select name="sex">
+              <option value="">未選択</option>
+              <option value="male">男性</option>
+              <option value="female">女性</option>
+              <option value="other">その他</option>
+            </select>
+          </label>
+          <label>メモ<textarea name="note" placeholder="体質や持病など任意で記録"></textarea></label>
+          <div class="review-row">
+            <button type="submit" id="save-profile-btn">プロフィールを保存</button>
+            <p id="profile-status" class="last-sync">未保存</p>
+          </div>
+          <p id="profile-completion" class="last-sync">入力充足率: 0%</p>
+          <p id="bmi-view" class="last-sync">BMI: -</p>
+        </form>
+      </section>
+
+      <section class="card">
+        <h2>日付でふりかえり</h2>
+        <div class="review-row">
+          <input type="date" id="review-date" />
+          <button id="review-btn">この日の記録を見る</button>
+          <button type="button" id="review-edit-btn" class="hidden">この記録を編集する</button>
+        </div>
+        <p id="review-view" class="review-view">日付を選ぶと、その日の記録を表示します。</p>
+      </section>
+
+      <section class="card">
+        <h2>月の記録カレンダー</h2>
+        <div class="review-row">
+          <input type="month" id="calendar-month" />
+          <button id="calendar-btn">カレンダー更新</button>
+        </div>
+        <div id="calendar-grid" class="calendar-grid"></div>
+      </section>
+
+      <section class="card">
+        <h2>ゲージ推移グラフ</h2>
+        <p class="sub">症状・気分・睡眠の質の変化を線グラフで確認できます。</p>
+        <div class="review-row">
+          <select id="chart-range">
+            <option value="14" selected>直近14件</option>
+            <option value="30">直近30件</option>
+            <option value="custom">期間指定</option>
+          </select>
+          <input type="date" id="chart-from" />
+          <input type="date" id="chart-to" />
+          <button id="chart-refresh-btn">グラフ更新</button>
+        </div>
+        <p id="chart-status" class="last-sync">グラフ準備中...</p>
+        <canvas id="trend-chart" class="trend-chart" height="220"></canvas>
+        <div class="chart-legend">
+          <span class="legend-item"><i class="dot symptom"></i>症状スコア</span>
+          <span class="legend-item"><i class="dot mood"></i>気分スコア</span>
+          <span class="legend-item"><i class="dot sleepq"></i>睡眠の質</span>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>データ管理</h2>
+        <p class="sub">デモ表示用に、体調日記のサンプル12日分を自動投入できます。</p>
+        <div class="review-row">
+          <button id="seed-demo-btn">デモ12日分を投入</button>
+          <p id="seed-demo-status" class="last-sync">未実行</p>
+        </div>
+        <hr />
+        <p class="sub">バックアップ用途として、あなたのデータをJSONで保存できます。</p>
+        <div class="review-row">
+          <button id="export-user-btn">データをJSONで保存</button>
+          <p id="export-status" class="last-sync">未実行</p>
+        </div>
+        <hr />
+        <p class="sub">医師共有用のサマリーとリンクを発行できます。</p>
+        <div class="review-row">
+          <button id="export-doctor-summary-btn">医師向けサマリー保存</button>
+          <button id="create-share-link-btn">共有リンク発行(24h)</button>
+          <p id="share-status" class="last-sync">未実行</p>
+        </div>
+        <ul id="share-links-list" class="recent-list">
+          <li>共有リンクはまだありません</li>
+        </ul>
+        <hr />
+        <p class="sub">医師から共有されたコメント</p>
+        <ul id="doctor-notes-list" class="recent-list">
+          <li>まだコメントはありません</li>
+        </ul>
+      </section>
+      </div>
+    </main>
+
+    <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
+
+    <script src="/app.js" type="module"></script>
+  </body>
+  </html>

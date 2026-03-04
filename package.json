@@ -1,0 +1,13 @@
+{
+  "name": "health-ai-core",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Minimal AI-first health core API server",
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.mjs",
+    "check": "node --check src/server.mjs && node --check web/app.js",
+    "test": "node --test",
+    "qa": "npm run check && echo 'Open docs/final-qa-checklist-v0.1.md and run manual checks at http://localhost:8787/'"
+  }
+}

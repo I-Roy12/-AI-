@@ -1,0 +1,38 @@
+{
+  "version": "0.1",
+  "default_disclaimer": "本提案は自己記録に基づく補助情報であり、診断ではありません。",
+  "emergency_guidance": "緊急性のある可能性があります。すぐに医療機関または緊急窓口へ連絡してください。",
+  "rules": [
+    {
+      "id": "severe_chest_pain",
+      "risk_level": "high",
+      "keywords": ["胸が強く痛い", "激しい胸痛", "胸が締めつけられる"],
+      "block_normal_response": true
+    },
+    {
+      "id": "breathing_difficulty",
+      "risk_level": "high",
+      "keywords": ["息が苦しい", "呼吸が苦しい", "息ができない"],
+      "block_normal_response": true
+    },
+    {
+      "id": "suicidal_ideation",
+      "risk_level": "high",
+      "keywords": ["死にたい", "消えたい", "自分を傷つけたい"],
+      "block_normal_response": true
+    },
+    {
+      "id": "heavy_bleeding",
+      "risk_level": "high",
+      "keywords": ["出血が止まらない", "大量に出血"],
+      "block_normal_response": true
+    }
+  ],
+  "banned_phrases": [
+    "あなたは",
+    "確実に",
+    "絶対に",
+    "問題ありません",
+    "薬をやめてください"
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "version": "0.1",
+  "categories": [
+    {
+      "id": "sleep_and_mood",
+      "signals": ["不眠", "中途覚醒", "気分の落ち込み", "不安感", "意欲低下"],
+      "recommended_departments": ["心療内科", "精神科"]
+    },
+    {
+      "id": "headache_and_fatigue",
+      "signals": ["頭痛", "慢性的なだるさ", "集中困難"],
+      "recommended_departments": ["内科", "脳神経内科"]
+    },
+    {
+      "id": "digestive_issues",
+      "signals": ["腹痛", "吐き気", "下痢", "便秘", "食欲不振"],
+      "recommended_departments": ["内科", "消化器内科"]
+    },
+    {
+      "id": "skin_allergy",
+      "signals": ["かゆみ", "発疹", "じんましん"],
+      "recommended_departments": ["皮膚科", "アレルギー科"]
+    }
+  ],
+  "matching_factors": [
+    "supported_categories",
+    "online_available",
+    "next_available_at",
+    "description_style_tags"
+  ]
+}
