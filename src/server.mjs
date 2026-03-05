@@ -470,6 +470,131 @@ function shareLinkStatus(link) {
   return "active";
 }
 
+function daysSince(isoText, nowMs = Date.now()) {
+  const t = new Date(String(isoText || "")).getTime();
+  if (!Number.isFinite(t)) return 0;
+  const diff = Math.floor((nowMs - t) / (24 * 60 * 60 * 1000));
+  return Math.max(0, diff);
+}
+
+function doctorQueueTier(score) {
+  if (score >= 80) return { code: "urgent", label: "最優先" };
+  if (score >= 55) return { code: "high", label: "高" };
+  if (score >= 30) return { code: "medium", label: "中" };
+  return { code: "low", label: "低" };
+}
+
+function scoreDoctorQueue(summary, nowMs = Date.now()) {
+  const triage = summary?.triage || {};
+  const latest = summary?.latest_record || {};
+  const scoreReasons = [];
+  let score = 0;
+
+  const risk = String(triage.risk_level || "low");
+  if (risk === "high") {
+    score += 55;
+    scoreReasons.push("高リスク判定");
+  } else if (risk === "medium") {
+    score += 28;
+    scoreReasons.push("中リスク判定");
+  }
+
+  const trend = String(triage.trend || "stable");
+  if (trend === "worsening") {
+    score += 20;
+    scoreReasons.push("悪化傾向");
+  } else if (trend === "stable") {
+    score += 8;
+  }
+
+  const symptomScore = Number(latest.symptom_score || 0);
+  if (symptomScore >= 8) {
+    score += 18;
+    scoreReasons.push(`症状スコア高め(${symptomScore})`);
+  } else if (symptomScore >= 6) {
+    score += 10;
+  }
+
+  const moodScore = Number(latest.mood_score || 0);
+  if (moodScore <= 2) {
+    score += 15;
+    scoreReasons.push(`気分スコア低め(${moodScore})`);
+  } else if (moodScore <= 4) {
+    score += 8;
+  }
+
+  const sleepHours = Number(latest.sleep_hours || 0);
+  if (sleepHours > 0 && sleepHours < 4) {
+    score += 10;
+    scoreReasons.push(`睡眠不足(${sleepHours}h)`);
+  } else if (sleepHours > 0 && sleepHours < 6) {
+    score += 6;
+  }
+
+  const staleDays = daysSince(latest.recorded_at, nowMs);
+  if (staleDays >= 3) {
+    score += 7;
+    scoreReasons.push(`${staleDays}日間更新なし`);
+  }
+
+  return {
+    score: Math.min(99, score),
+    reasons: scoreReasons.slice(0, 4)
+  };
+}
+
+function buildDoctorQueueItems(windowDays = 14) {
+  const nowMs = Date.now();
+  const links = storeRepository.listShareLinks();
+  const latestActiveLinkByUser = new Map();
+
+  for (const link of links) {
+    if (shareLinkStatus(link) !== "active") continue;
+    const userId = String(link.user_id || "").trim();
+    if (!userId) continue;
+    const prev = latestActiveLinkByUser.get(userId);
+    if (!prev || new Date(link.created_at).getTime() > new Date(prev.created_at).getTime()) {
+      latestActiveLinkByUser.set(userId, link);
+    }
+  }
+
+  const items = [];
+  for (const [userId, link] of latestActiveLinkByUser.entries()) {
+    try {
+      const summary = doctorSummaryService.buildDoctorSummary(userId, windowDays);
+      const scored = scoreDoctorQueue(summary, nowMs);
+      const tier = doctorQueueTier(scored.score);
+      const latest = summary.latest_record || {};
+      const patient = summary.patient || {};
+      items.push({
+        user_id: userId,
+        display_name: patient.display_name || "",
+        risk_level: summary?.triage?.risk_level || "low",
+        trend: summary?.triage?.trend || "stable",
+        priority_score: scored.score,
+        priority_tier: tier.code,
+        priority_label: tier.label,
+        priority_reasons: scored.reasons,
+        last_recorded_at: latest.recorded_at || "",
+        symptom_score: latest.symptom_score ?? null,
+        mood_score: latest.mood_score ?? null,
+        share_kind: link.kind || "patient_share",
+        share_id: link.share_id,
+        doctor_url: `/doctor?token=${encodeURIComponent(link.token)}`
+      });
+    } catch (_) {
+      // Ignore users with no readable logs.
+    }
+  }
+
+  items.sort((a, b) => {
+    if (b.priority_score !== a.priority_score) return b.priority_score - a.priority_score;
+    return new Date(b.last_recorded_at).getTime() - new Date(a.last_recorded_at).getTime();
+  });
+
+  return items;
+}
+
 function toDoctorShareLinkItem(link) {
   return {
     share_id: link.share_id,
@@ -1105,6 +1230,25 @@ const server = createServer(async (req, res) => {
         .map((item) => toDoctorShareLinkItem(item))
         .slice(0, 20);
       return sendJson(res, 200, { items });
+    }
+
+    if (method === "GET" && pathname === "/api/v1/doctor/queue") {
+      const session = await requireDoctorSession(req, res);
+      if (!session) return;
+      const windowDays = Math.max(7, Math.min(30, Number(requestUrl.searchParams.get("window_days") || 14)));
+      const items = buildDoctorQueueItems(windowDays);
+      return sendJson(res, 200, {
+        generated_at: new Date().toISOString(),
+        window_days: windowDays,
+        total: items.length,
+        counts: {
+          urgent: items.filter((item) => item.priority_tier === "urgent").length,
+          high: items.filter((item) => item.priority_tier === "high").length,
+          medium: items.filter((item) => item.priority_tier === "medium").length,
+          low: items.filter((item) => item.priority_tier === "low").length
+        },
+        items
+      });
     }
 
     if (method === "GET" && pathname === "/api/v1/patient/doctor-notes") {

@@ -32,6 +32,18 @@
       </section>
 
       <section class="card">
+        <h2>優先確認キュー（AI補助）</h2>
+        <p class="sub">高リスク・悪化傾向・重症度を基に、先に確認したい患者さんを上から表示します。</p>
+        <div class="review-row">
+          <button id="doctor-queue-refresh-btn" type="button">優先順を更新</button>
+          <p id="doctor-queue-status" class="last-sync">未更新</p>
+        </div>
+        <ul id="doctor-queue-list" class="recent-list">
+          <li>まだデータがありません</li>
+        </ul>
+      </section>
+
+      <section class="card">
         <h2>医師間連携（引き継ぎ）</h2>
         <p class="sub">別の医師へ共有するための引き継ぎリンクを発行できます。</p>
         <label>引き継ぎ先（任意）<input id="doctor-handoff-to" placeholder="例: 循環器内科 / ○○病院" /></label>

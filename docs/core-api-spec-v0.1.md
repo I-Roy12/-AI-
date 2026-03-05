@@ -119,6 +119,40 @@
 }
 ```
 
+## GET /doctor/queue?window_days=14
+医師向けの優先確認キューを返す（ログイン必須）
+
+### response
+```json
+{
+  "generated_at": "2026-03-05T04:00:00.000Z",
+  "window_days": 14,
+  "total": 3,
+  "counts": {
+    "urgent": 1,
+    "high": 1,
+    "medium": 1,
+    "low": 0
+  },
+  "items": [
+    {
+      "user_id": "u_123",
+      "display_name": "デモユーザー",
+      "risk_level": "high",
+      "trend": "worsening",
+      "priority_score": 86,
+      "priority_tier": "urgent",
+      "priority_label": "最優先",
+      "priority_reasons": ["高リスク判定", "悪化傾向"],
+      "last_recorded_at": "2026-03-05T08:30:00+09:00",
+      "symptom_score": 8,
+      "mood_score": 2,
+      "doctor_url": "/doctor?token=..."
+    }
+  ]
+}
+```
+
 ## 3. エラー方針
 - 4xx: 入力不備
 - 5xx: サーバー障害

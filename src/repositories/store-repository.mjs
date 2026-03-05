@@ -129,6 +129,10 @@ export function createStoreRepository({ dataDirPath, dataStorePath }) {
     return store.shareLinks.filter((item) => item.user_id === userId);
   }
 
+  function listShareLinks() {
+    return store.shareLinks.slice();
+  }
+
   function revokeShareLink(shareId, revokedAt) {
     const link = findShareById(shareId);
     if (!link) return null;
@@ -213,6 +217,7 @@ export function createStoreRepository({ dataDirPath, dataStorePath }) {
     findShareByToken,
     findShareById,
     listShareLinksByUser,
+    listShareLinks,
     revokeShareLink,
     removeShareLinksByUser,
     addShareAccessLog,

@@ -4,6 +4,9 @@ const statusView = document.querySelector("#doctor-status");
 const doctorShareContext = document.querySelector("#doctor-share-context");
 const doctorMe = document.querySelector("#doctor-me");
 const doctorLogoutBtn = document.querySelector("#doctor-logout-btn");
+const doctorQueueRefreshBtn = document.querySelector("#doctor-queue-refresh-btn");
+const doctorQueueStatus = document.querySelector("#doctor-queue-status");
+const doctorQueueList = document.querySelector("#doctor-queue-list");
 const triageView = document.querySelector("#triage-view");
 const patientView = document.querySelector("#patient-view");
 const periodView = document.querySelector("#period-view");
@@ -212,6 +215,96 @@ function renderHandoffLinks(items) {
     }
     li.append(row);
     doctorHandoffLinks.append(li);
+  }
+}
+
+function queueTierClass(tier) {
+  if (tier === "urgent") return "queue-tier-urgent";
+  if (tier === "high") return "queue-tier-high";
+  if (tier === "medium") return "queue-tier-medium";
+  return "queue-tier-low";
+}
+
+function formatDateTime(value) {
+  const date = new Date(String(value || ""));
+  if (Number.isNaN(date.getTime())) return "-";
+  return date.toLocaleString("ja-JP");
+}
+
+function renderDoctorQueue(data) {
+  if (!doctorQueueList) return;
+  const items = Array.isArray(data?.items) ? data.items : [];
+  doctorQueueList.innerHTML = "";
+
+  if (!items.length) {
+    const li = document.createElement("li");
+    li.textContent = "優先確認対象はありません";
+    doctorQueueList.append(li);
+    return;
+  }
+
+  for (const item of items) {
+    const li = document.createElement("li");
+    li.className = "doctor-queue-item";
+
+    const row = document.createElement("div");
+    row.className = "review-row";
+
+    const badge = document.createElement("span");
+    badge.className = `queue-tier ${queueTierClass(item.priority_tier)}`;
+    badge.textContent = `${item.priority_label || "-"} (${item.priority_score ?? 0})`;
+    row.append(badge);
+
+    const meta = document.createElement("span");
+    meta.className = "last-sync";
+    meta.textContent = `${item.display_name || item.user_id} / リスク:${item.risk_level || "-"} / 傾向:${item.trend || "-"}`;
+    row.append(meta);
+
+    const openBtn = document.createElement("button");
+    openBtn.type = "button";
+    openBtn.textContent = "この患者を開く";
+    openBtn.addEventListener("click", () => {
+      const doctorUrl = String(item.doctor_url || "");
+      const match = doctorUrl.match(/[?&]token=([a-f0-9]{32})/);
+      if (!match) return;
+      const token = match[1];
+      if (tokenInput) tokenInput.value = token;
+      loadDoctorView(token).catch(() => {});
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    });
+    row.append(openBtn);
+    li.append(row);
+
+    const detail = document.createElement("p");
+    detail.className = "last-sync";
+    detail.textContent = `最終記録: ${formatDateTime(item.last_recorded_at)} / つらさ${
+      item.symptom_score ?? "-"
+    } / 気分${item.mood_score ?? "-"}`;
+    li.append(detail);
+
+    if (Array.isArray(item.priority_reasons) && item.priority_reasons.length) {
+      const reason = document.createElement("p");
+      reason.className = "queue-reason";
+      reason.textContent = `優先理由: ${item.priority_reasons.join(" / ")}`;
+      li.append(reason);
+    }
+
+    doctorQueueList.append(li);
+  }
+}
+
+async function loadDoctorQueue() {
+  if (!doctorQueueStatus) return;
+  setText(doctorQueueStatus, "更新中...");
+  try {
+    const data = await api("/api/v1/doctor/queue?window_days=14");
+    renderDoctorQueue(data);
+    setText(
+      doctorQueueStatus,
+      `更新済み: ${data.total || 0}件 (最優先:${data?.counts?.urgent || 0} / 高:${data?.counts?.high || 0})`
+    );
+  } catch (error) {
+    setText(doctorQueueStatus, `更新失敗: ${getDisplayError(error)}`);
   }
 }
 
@@ -466,6 +559,7 @@ const params = new URLSearchParams(window.location.search);
 const initialToken = params.get("token") || "";
 ensureDoctorAuth().then((ok) => {
   if (!ok) return;
+  loadDoctorQueue().catch(() => {});
   if (initialToken) {
     tokenInput.value = initialToken;
     loadDoctorView(initialToken).catch(() => {});
@@ -479,6 +573,12 @@ doctorSaveNoteBtn.addEventListener("click", () => {
 if (doctorHandoffCreateBtn) {
   doctorHandoffCreateBtn.addEventListener("click", () => {
     createDoctorHandoff().catch(() => {});
+  });
+}
+
+if (doctorQueueRefreshBtn) {
+  doctorQueueRefreshBtn.addEventListener("click", () => {
+    loadDoctorQueue().catch(() => {});
   });
 }
 

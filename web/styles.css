@@ -423,6 +423,58 @@ input[type="range"]::-moz-range-thumb {
   opacity: 0.9;
 }
 
+.doctor-queue-item {
+  border: 1px solid #eadcca;
+  border-radius: 10px;
+  background: #fffdf9;
+  padding: 10px;
+  list-style: none;
+}
+
+#doctor-queue-list {
+  padding-left: 0;
+}
+
+.queue-tier {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 2px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  border: 1px solid transparent;
+}
+
+.queue-tier-urgent {
+  color: #7f1d1d;
+  background: #fee2e2;
+  border-color: #fca5a5;
+}
+
+.queue-tier-high {
+  color: #8a3800;
+  background: #ffedd5;
+  border-color: #fdba74;
+}
+
+.queue-tier-medium {
+  color: #7c5f00;
+  background: #fef3c7;
+  border-color: #fcd34d;
+}
+
+.queue-tier-low {
+  color: #14532d;
+  background: #dcfce7;
+  border-color: #86efac;
+}
+
+.queue-reason {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: #7b4f22;
+}
+
 .safety-status {
   margin: 10px 0 0;
   padding: 10px;
