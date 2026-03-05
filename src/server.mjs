@@ -68,7 +68,9 @@ const providers = [
     description_style_tags: ["丁寧説明"],
     next_available_at: "2026-03-05T10:30:00+09:00",
     phone: "03-5000-1001",
-    booking_url: "https://example.com/booking/minato-mental"
+    booking_url: "https://example.com/booking/minato-mental",
+    address: "東京都港区芝公園1-1-1",
+    location: { lat: 35.6586, lng: 139.7454 }
   },
   {
     provider_id: "dr_002",
@@ -78,7 +80,9 @@ const providers = [
     description_style_tags: ["短時間重視"],
     next_available_at: "2026-03-05T09:00:00+09:00",
     phone: "03-5000-1002",
-    booking_url: "https://example.com/booking/sakura-internal"
+    booking_url: "https://example.com/booking/sakura-internal",
+    address: "東京都千代田区神田1-2-3",
+    location: { lat: 35.6918, lng: 139.7708 }
   },
   {
     provider_id: "dr_003",
@@ -88,7 +92,9 @@ const providers = [
     description_style_tags: ["丁寧説明"],
     next_available_at: "2026-03-06T11:00:00+09:00",
     phone: "03-5000-1003",
-    booking_url: "https://example.com/booking/shirakaba-skin"
+    booking_url: "https://example.com/booking/shirakaba-skin",
+    address: "東京都新宿区西新宿2-8-1",
+    location: { lat: 35.6896, lng: 139.6921 }
   }
 ];
 
@@ -269,6 +275,23 @@ function confidenceFromData(recordsCount) {
   if (recordsCount >= 7) return "high";
   if (recordsCount >= 3) return "medium";
   return "low";
+}
+
+function parseGeoParam(raw) {
+  const num = Number(raw);
+  if (!Number.isFinite(num)) return null;
+  return num;
+}
+
+function parseUserLocation(searchParams) {
+  const lat = parseGeoParam(searchParams.get("lat"));
+  const lng = parseGeoParam(searchParams.get("lng"));
+  if (lat === null || lng === null) return null;
+  if (Math.abs(lat) > 90 || Math.abs(lng) > 180) return null;
+  return {
+    lat: Number(lat.toFixed(6)),
+    lng: Number(lng.toFixed(6))
+  };
 }
 
 function insightEnvelope(payload, evidence, userLogCount) {
@@ -1369,15 +1392,18 @@ const server = createServer(async (req, res) => {
       if (!userId) return sendJson(res, 400, { error: "missing user_id" });
       const userLogs = getUserLogs(userId);
       if (!userLogs.length) return sendJson(res, 404, { error: "no logs found" });
+      const userLocation = parseUserLocation(requestUrl.searchParams);
       const { category, providers: matched } = providerMatchingService.matchProviders(userLogs[userLogs.length - 1], {
         minFit: 0.5,
-        limit: providers.length
+        limit: providers.length,
+        userLocation
       });
 
       const payload = insightEnvelope(
         {
           category: category.id,
           recommended_departments: category.recommended_departments,
+          location_used: Boolean(userLocation),
           providers: matched
         },
         ["symptoms", "symptom_score", "mood_score", "sleep_quality_score"],

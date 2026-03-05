@@ -133,3 +133,42 @@ test("doctor summary keeps image_evidence compatibility", () => {
   assert.equal(summary.image_evidence.length, 1);
   assert.equal(summary.image_evidence[0].url, "/uploads/sample.png");
 });
+
+test("provider match prefers nearby provider when location is given", () => {
+  const symptomConfig = {
+    categories: [
+      {
+        id: "sleep_and_mood",
+        signals: ["不眠"],
+        recommended_departments: ["心療内科"]
+      }
+    ]
+  };
+  const providers = [
+    {
+      provider_id: "near_1",
+      name: "近いクリニック",
+      supported_categories: ["sleep_and_mood"],
+      online_available: true,
+      location: { lat: 35.681236, lng: 139.767125 }
+    },
+    {
+      provider_id: "far_1",
+      name: "遠いクリニック",
+      supported_categories: ["sleep_and_mood"],
+      online_available: true,
+      location: { lat: 34.693725, lng: 135.502254 }
+    }
+  ];
+  const service = createProviderMatchingService({ symptomConfig, providers });
+  const log = { symptoms: ["不眠"], note: "", symptom_score: 5, mood_score: 4 };
+  const result = service.matchProviders(log, {
+    userLocation: { lat: 35.6809, lng: 139.7673 },
+    limit: 2
+  });
+
+  assert.equal(result.providers.length, 2);
+  assert.equal(result.providers[0].provider_id, "near_1");
+  assert.equal(Number.isFinite(result.providers[0].distance_km), true);
+  assert.equal(result.providers[0].recommendation_score >= result.providers[1].recommendation_score, true);
+});

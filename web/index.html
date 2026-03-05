@@ -149,6 +149,12 @@
       <section class="card">
         <h2>受診予約サポート</h2>
         <p class="sub">相談先候補を表示すると、予約導線（Web/電話）がここに出ます。</p>
+        <div class="review-row">
+          <button type="button" id="loc-nearby-btn">現在地で近い順にする</button>
+          <button type="button" id="loc-clear-btn">位置情報を使わない</button>
+          <p id="loc-status" class="last-sync">位置情報: 未使用</p>
+        </div>
+        <p class="sub">位置情報は候補並び替えにのみ利用し、サーバー保存しません。</p>
         <div id="reservation-view" class="reservation-view">まだ候補はありません。「相談先候補を表示」を押してください。</div>
       </section>
 

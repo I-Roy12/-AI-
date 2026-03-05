@@ -17,6 +17,9 @@ const reviewBtn = document.querySelector("#review-btn");
 const reviewEditBtn = document.querySelector("#review-edit-btn");
 const reviewView = document.querySelector("#review-view");
 const reservationView = document.querySelector("#reservation-view");
+const locNearbyBtn = document.querySelector("#loc-nearby-btn");
+const locClearBtn = document.querySelector("#loc-clear-btn");
+const locStatus = document.querySelector("#loc-status");
 const safetyStatus = document.querySelector("#safety-status");
 const calendarMonth = document.querySelector("#calendar-month");
 const calendarBtn = document.querySelector("#calendar-btn");
@@ -89,6 +92,7 @@ let editingLogId = "";
 let editingSourceDate = "";
 let reviewedLogItem = null;
 let imageClearRequested = false;
+let userLocation = null;
 
 function getSpeechRecognitionCtor() {
   return (
@@ -234,7 +238,8 @@ function localizeErrorMessage(raw, statusCode = 0) {
     missing_token: "共有トークンが見つかりません。リンクを確認してください",
     invalid_credentials: "メールアドレスまたはパスワードが正しくありません",
     too_many_login_attempts: "操作回数が上限に達しました。しばらく待ってから再試行してください",
-    "no logs found": "記録が見つかりません。先に患者側で記録を保存してください"
+    "no logs found": "記録が見つかりません。先に患者側で記録を保存してください",
+    clipboard_write_denied: "ブラウザのコピー権限がないため自動コピーできません。リンクを手動でコピーしてください"
   };
   if (map[code]) return map[code];
 
@@ -766,7 +771,12 @@ async function loadTrend() {
 
 async function loadMatch() {
   const userId = getUserId();
-  return api(`/api/v1/match/providers?user_id=${encodeURIComponent(userId)}`);
+  const params = new URLSearchParams({ user_id: userId });
+  if (userLocation && Number.isFinite(userLocation.lat) && Number.isFinite(userLocation.lng)) {
+    params.set("lat", String(userLocation.lat));
+    params.set("lng", String(userLocation.lng));
+  }
+  return api(`/api/v1/match/providers?${params.toString()}`);
 }
 
 function renderReservationCandidates(data) {
@@ -777,21 +787,47 @@ function renderReservationCandidates(data) {
     return;
   }
   reservationView.innerHTML = "";
+  const locationInfo = document.createElement("p");
+  locationInfo.className = "reservation-meta";
+  locationInfo.textContent = data?.location_used
+    ? "現在地を使って距離も加味したおすすめ順で表示しています。"
+    : "症状適合度を優先して表示しています。現在地を使うと近い順も反映できます。";
+  reservationView.append(locationInfo);
+
   for (const provider of providers) {
     const card = document.createElement("article");
     card.className = "reservation-item";
 
     const title = document.createElement("p");
     title.className = "reservation-title";
-    title.textContent = `${provider.name || "医療機関"}（適合度 ${Math.round(Number(provider.fit_score || 0) * 100)}%）`;
+    const fitPercent = Math.round(Number(provider.fit_score || 0) * 100);
+    const recommendPercent = Math.round(Number(provider.recommendation_score || provider.fit_score || 0) * 100);
+    title.textContent = `${provider.name || "医療機関"}（AIおすすめ ${recommendPercent}% / 適合度 ${fitPercent}%）`;
     card.append(title);
 
     const meta = document.createElement("p");
     meta.className = "reservation-meta";
     const online = provider.online_available ? "オンライン可" : "対面中心";
     const next = provider.next_available_at ? ` / 最短: ${formatDateTime(provider.next_available_at)}` : "";
-    meta.textContent = `${online}${next}`;
+    const distance = Number.isFinite(Number(provider.distance_km))
+      ? ` / 距離: ${Number(provider.distance_km).toFixed(1)}km`
+      : "";
+    meta.textContent = `${online}${distance}${next}`;
     card.append(meta);
+
+    if (provider.address) {
+      const address = document.createElement("p");
+      address.className = "reservation-meta";
+      address.textContent = `住所: ${provider.address}`;
+      card.append(address);
+    }
+
+    if (provider.recommendation_reason) {
+      const reason = document.createElement("p");
+      reason.className = "reservation-reason";
+      reason.textContent = `AIおすすめ理由: ${provider.recommendation_reason}`;
+      card.append(reason);
+    }
 
     const actions = document.createElement("div");
     actions.className = "reservation-actions";
@@ -819,6 +855,39 @@ function renderReservationCandidates(data) {
     }
     reservationView.append(card);
   }
+}
+
+function setLocationStatus(text) {
+  if (!locStatus) return;
+  locStatus.textContent = text;
+}
+
+function geolocationErrorMessage(error) {
+  const code = Number(error?.code || 0);
+  if (code === 1) return "位置情報が許可されていません。ブラウザ設定で許可してください。";
+  if (code === 2) return "位置情報を取得できませんでした。電波状況をご確認ください。";
+  if (code === 3) return "位置情報の取得がタイムアウトしました。";
+  return "位置情報の取得に失敗しました。";
+}
+
+function clearUserLocation() {
+  userLocation = null;
+  setLocationStatus("位置情報: 未使用");
+}
+
+function getCurrentPosition() {
+  if (!navigator.geolocation) {
+    const err = new Error("geolocation_not_supported");
+    err.code = 0;
+    throw err;
+  }
+  return new Promise((resolve, reject) => {
+    navigator.geolocation.getCurrentPosition(resolve, reject, {
+      enableHighAccuracy: false,
+      timeout: 10000,
+      maximumAge: 5 * 60 * 1000
+    });
+  });
 }
 
 async function loadNextStep() {
@@ -1417,15 +1486,28 @@ function absoluteUrl(path) {
 
 async function copyText(text) {
   if (navigator.clipboard?.writeText) {
-    await navigator.clipboard.writeText(text);
-    return;
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch (_) {
+      // Fall back to legacy copy flow.
+    }
   }
   const area = document.createElement("textarea");
   area.value = text;
+  area.setAttribute("readonly", "true");
+  area.style.position = "fixed";
+  area.style.left = "-9999px";
   document.body.append(area);
   area.select();
-  document.execCommand("copy");
+  const copied = document.execCommand("copy");
   area.remove();
+  if (!copied) {
+    const error = new Error("clipboard_write_denied");
+    error.statusCode = 0;
+    throw error;
+  }
+  return true;
 }
 
 function renderShareLinks(items) {
@@ -1449,9 +1531,16 @@ function renderShareLinks(items) {
     copyBtn.type = "button";
     copyBtn.textContent = "リンクをコピー";
     copyBtn.addEventListener("click", async () => {
-      await copyText(absoluteUrl(item.doctor_url));
-      if (shareStatus) shareStatus.textContent = "共有リンクをコピーしました";
-      showToast("共有リンクをコピーしました");
+      try {
+        await copyText(absoluteUrl(item.doctor_url));
+        if (shareStatus) shareStatus.textContent = "共有リンクをコピーしました";
+        showToast("共有リンクをコピーしました");
+      } catch (error) {
+        if (shareStatus) {
+          shareStatus.textContent = "リンク発行は済みです。下の「医師ビューを開く」またはURL手動コピーをご利用ください。";
+        }
+        reportError("クリップボードコピー失敗", error, shareStatus);
+      }
     });
     row.append(copyBtn);
 
@@ -1686,6 +1775,56 @@ matchBtn.addEventListener("click", async () => {
     reportError("相談先候補エラー", error);
   }
 });
+
+if (locNearbyBtn) {
+  locNearbyBtn.addEventListener("click", async () => {
+    const before = locNearbyBtn.textContent;
+    locNearbyBtn.disabled = true;
+    locNearbyBtn.textContent = "取得中...";
+    try {
+      if (!window.isSecureContext && !isLocalhostHostName(location.hostname)) {
+        setLocationStatus("位置情報は https または localhost でのみ利用できます。");
+        showToast("位置情報は https/localhost で利用できます");
+        return;
+      }
+      const pos = await getCurrentPosition();
+      userLocation = {
+        lat: Number(pos.coords.latitude),
+        lng: Number(pos.coords.longitude),
+        accuracy_m: Number(pos.coords.accuracy || 0)
+      };
+      const accText = Number.isFinite(userLocation.accuracy_m) && userLocation.accuracy_m > 0
+        ? ` (誤差±${Math.round(userLocation.accuracy_m)}m)`
+        : "";
+      setLocationStatus(`位置情報: 取得済み${accText}`);
+      const data = await loadMatch();
+      renderReservationCandidates(data);
+      show(data);
+      showToast("現在地を使って候補を更新しました");
+    } catch (error) {
+      clearUserLocation();
+      const message = error?.message === "geolocation_not_supported" ? "この端末は位置情報に対応していません。" : geolocationErrorMessage(error);
+      setLocationStatus(`位置情報: ${message}`);
+      showToast(message);
+    } finally {
+      locNearbyBtn.disabled = false;
+      locNearbyBtn.textContent = before;
+    }
+  });
+}
+
+if (locClearBtn) {
+  locClearBtn.addEventListener("click", async () => {
+    clearUserLocation();
+    try {
+      const data = await loadMatch();
+      renderReservationCandidates(data);
+      showToast("位置情報なしの候補に戻しました");
+    } catch (error) {
+      reportError("相談先候補エラー", error);
+    }
+  });
+}
 
 safetyBtn.addEventListener("click", async () => {
   try {
@@ -2111,9 +2250,24 @@ if (createShareLinkBtn) {
     createShareLinkBtn.textContent = "発行中...";
     try {
       const data = await createDoctorShareLink();
-      if (shareStatus) shareStatus.textContent = `共有リンク発行: ${formatDateTime(data.expires_at)} まで有効`;
-      await copyText(absoluteUrl(data.doctor_url));
-      showToast("共有リンクを発行してコピーしました");
+      const url = absoluteUrl(data.doctor_url);
+      let copied = false;
+      try {
+        copied = await copyText(url);
+      } catch (_) {
+        copied = false;
+      }
+      if (shareStatus) {
+        shareStatus.textContent = copied
+          ? `共有リンク発行: ${formatDateTime(data.expires_at)} まで有効（コピー済み）`
+          : `共有リンク発行: ${formatDateTime(data.expires_at)} まで有効（コピーは手動）`;
+      }
+      show({
+        message: copied ? "共有リンクを発行してコピーしました" : "共有リンクを発行しました。手動でコピーしてください。",
+        doctor_url: url,
+        expires_at: data.expires_at
+      });
+      showToast(copied ? "共有リンクを発行してコピーしました" : "共有リンクを発行しました（手動コピー）");
       await loadShareLinks();
     } catch (error) {
       if (shareStatus) shareStatus.textContent = `失敗: ${extractErrorMessage(error)}`;

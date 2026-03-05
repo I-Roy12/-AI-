@@ -69,19 +69,23 @@
 }
 ```
 
-## GET /match/providers?user_id={id}
-受診先候補を返す（症状カテゴリベース）
+## GET /match/providers?user_id={id}&lat={緯度}&lng={経度}
+受診先候補を返す（症状カテゴリ + 位置情報があれば近さも加味）
 
 ### response
 ```json
 {
   "category": "sleep_and_mood",
   "recommended_departments": ["心療内科", "精神科"],
+  "location_used": true,
   "providers": [
     {
       "provider_id": "dr_001",
       "name": "山田クリニック",
       "fit_score": 0.82,
+      "recommendation_score": 0.93,
+      "distance_km": 1.8,
+      "recommendation_reason": "心療内科が適合候補です / 現在地から近い候補です",
       "online_available": true,
       "next_slot": "2026-02-28T10:30:00+09:00"
     }
