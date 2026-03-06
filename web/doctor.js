@@ -427,7 +427,7 @@ function applyData(data) {
     patientView,
     `ID: ${patient.user_id || "-"} / 名前: ${patient.display_name || "-"} / 年齢: ${patient.age ?? "-"} / 性別: ${
       patient.sex || "-"
-    } / BMI: ${patient.bmi ?? "-"}`
+    } / BMI: ${patient.bmi ?? "-"} / 持病: ${patient.chronic_conditions || "-"}`
   );
   setText(periodView, `${period.from || "-"} 〜 ${period.to || "-"} / 記録 ${period.records || 0}件`);
   setText(

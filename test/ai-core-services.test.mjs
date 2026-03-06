@@ -117,7 +117,7 @@ test("doctor summary keeps image_evidence compatibility", () => {
 
   const service = createDoctorSummaryService({
     getUserLogs: () => logs,
-    getProfile: () => ({ display_name: "Demo" }),
+    getProfile: () => ({ display_name: "Demo", chronic_conditions: "喘息" }),
     evaluateSafety: safetyService.evaluateSafety,
     computeTrend,
     makeNextStep,
@@ -132,6 +132,7 @@ test("doctor summary keeps image_evidence compatibility", () => {
   assert.equal(Array.isArray(summary.image_evidence), true);
   assert.equal(summary.image_evidence.length, 1);
   assert.equal(summary.image_evidence[0].url, "/uploads/sample.png");
+  assert.equal(summary.patient.chronic_conditions, "喘息");
 });
 
 test("provider match prefers nearby provider when location is given", () => {

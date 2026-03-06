@@ -776,6 +776,7 @@ function sanitizeProfileInput(body) {
     weight_kg: body.weight_kg === "" || body.weight_kg === undefined ? null : Number(body.weight_kg),
     birth_date: String(body.birth_date || "").trim(),
     sex: String(body.sex || "").trim(),
+    chronic_conditions: String(body.chronic_conditions || "").trim(),
     note: String(body.note || "").trim()
   };
 
@@ -786,6 +787,11 @@ function sanitizeProfileInput(body) {
   }
   if (profile.weight_kg !== null && (Number.isNaN(profile.weight_kg) || profile.weight_kg < 10 || profile.weight_kg > 300)) {
     const err = new Error("invalid_weight_kg");
+    err.statusCode = 400;
+    throw err;
+  }
+  if (profile.chronic_conditions.length > 600) {
+    const err = new Error("invalid_chronic_conditions");
     err.statusCode = 400;
     throw err;
   }
@@ -1286,6 +1292,7 @@ const server = createServer(async (req, res) => {
         weight_kg: 63.5,
         birth_date: "1995-06-21",
         sex: "other",
+        chronic_conditions: "花粉症（春）",
         note: "デモ表示用のプロフィール",
         updated_at: new Date().toISOString()
       });

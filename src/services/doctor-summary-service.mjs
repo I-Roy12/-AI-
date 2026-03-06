@@ -98,6 +98,7 @@ export function createDoctorSummaryService({
         sex: profile.sex || "",
         height_cm: profile.height_cm ?? null,
         weight_kg: profile.weight_kg ?? null,
+        chronic_conditions: profile.chronic_conditions || "",
         bmi
       },
       period: {

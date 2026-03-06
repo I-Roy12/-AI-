@@ -239,6 +239,7 @@ function localizeErrorMessage(raw, statusCode = 0) {
     invalid_credentials: "メールアドレスまたはパスワードが正しくありません",
     too_many_login_attempts: "操作回数が上限に達しました。しばらく待ってから再試行してください",
     "no logs found": "記録が見つかりません。先に患者側で記録を保存してください",
+    invalid_chronic_conditions: "持病の入力が長すぎます。600文字以内で入力してください",
     clipboard_write_denied: "ブラウザのコピー権限がないため自動コピーできません。リンクを手動でコピーしてください"
   };
   if (map[code]) return map[code];
@@ -491,8 +492,9 @@ function getProfileSummaryText() {
   const name = profileForm.querySelector("[name=display_name]").value || "-";
   const height = profileForm.querySelector("[name=height_cm]").value || "-";
   const weight = profileForm.querySelector("[name=weight_kg]").value || "-";
+  const chronic = profileForm.querySelector("[name=chronic_conditions]").value?.trim() || "-";
   const bmi = bmiView.textContent?.replace("BMI: ", "") || "-";
-  return `表示名: ${name} / 身長: ${height}cm / 体重: ${weight}kg / BMI: ${bmi}`;
+  return `表示名: ${name} / 身長: ${height}cm / 体重: ${weight}kg / BMI: ${bmi} / 持病: ${chronic}`;
 }
 
 function drawTrendChart(items) {
@@ -1025,6 +1027,7 @@ async function loadProfile() {
   profileForm.querySelector("[name=weight_kg]").value = profile.weight_kg ?? "";
   profileForm.querySelector("[name=birth_date]").value = profile.birth_date || "";
   profileForm.querySelector("[name=sex]").value = profile.sex || "";
+  profileForm.querySelector("[name=chronic_conditions]").value = profile.chronic_conditions || "";
   profileForm.querySelector("[name=note]").value = profile.note || "";
   profileStatus.textContent = profile.updated_at ? `更新済み: ${new Date(profile.updated_at).toLocaleString("ja-JP")}` : "未保存";
   updateProfileDerived(profile);
@@ -1041,6 +1044,7 @@ async function saveProfile() {
     weight_kg: formData.get("weight_kg"),
     birth_date: formData.get("birth_date"),
     sex: formData.get("sex"),
+    chronic_conditions: formData.get("chronic_conditions"),
     note: formData.get("note")
   };
   const data = await api("/api/v1/profile", {
@@ -2165,7 +2169,8 @@ profileForm.addEventListener("input", () => {
     height_cm: profileForm.querySelector("[name=height_cm]").value,
     weight_kg: profileForm.querySelector("[name=weight_kg]").value,
     birth_date: profileForm.querySelector("[name=birth_date]").value,
-    sex: profileForm.querySelector("[name=sex]").value
+    sex: profileForm.querySelector("[name=sex]").value,
+    chronic_conditions: profileForm.querySelector("[name=chronic_conditions]").value
   };
   updateProfileDerived(profile);
 });
