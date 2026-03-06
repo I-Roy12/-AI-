@@ -20,15 +20,19 @@
   - `Manual Deploy` で再デプロイ
 
 ## データ保存について
-- Renderの永続ディスクを `/var/data` にマウント済み（`render.yaml`）
+- 現在の `render.yaml` は本番運用向け（`plan: starter` / 永続Diskあり）です
+- 保存先は `/var/data`（Render Diskにマウント）
 - 保存対象:
   - `/var/data/store.json`
   - `/var/data/uploads/*`
 - 再デプロイ後もデータ保持されます
+
+## 料金の目安
+- `Starter` インスタンス + `Disk` は課金対象です
+- 料金はRenderのプラン改定で変わるため、作成画面の見積金額を最終確認してください
 
 ## トラブル時の確認
 - `GET /health` が `{"status":"ok"}` を返すか
 - `GET /api/v1/system/status` で `voice_transcribe_enabled` と `data_dir` を確認
 - 医師ログインが通らない場合:
   - `DOCTOR_COOKIE_SECURE=true` のまま HTTPS URL でアクセスしているか
-

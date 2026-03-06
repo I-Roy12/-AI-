@@ -127,7 +127,7 @@
 
 1. GitHubへこのプロジェクトをPush
 2. Renderで `New +` -> `Blueprint` を選び、対象リポジトリを指定
-3. `render.yaml` の内容でWebサービス作成（永続ディスク `/var/data` 付き）
+3. `render.yaml` の内容でWebサービス作成（本番向け: `plan: starter` / 永続Disk `/var/data`）
 4. `OPENAI_API_KEY` を使う場合だけRenderのEnvironmentで設定
 5. デプロイ完了後、RenderのHTTPS URLでアクセス
 
