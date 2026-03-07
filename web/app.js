@@ -54,6 +54,7 @@ const recordPage = document.querySelector("#record-page");
 const mypagePage = document.querySelector("#mypage-page");
 const profileForm = document.querySelector("#profile-form");
 const saveProfileBtn = document.querySelector("#save-profile-btn");
+const resetProfileBtn = document.querySelector("#reset-profile-btn");
 const profileStatus = document.querySelector("#profile-status");
 const profileCompletion = document.querySelector("#profile-completion");
 const bmiView = document.querySelector("#bmi-view");
@@ -484,6 +485,26 @@ function updateProfileDerived(profile) {
   } else {
     bmiView.textContent = "BMI: -";
   }
+}
+
+function isProfileEmpty(profile) {
+  const keys = ["display_name", "height_cm", "weight_kg", "birth_date", "sex", "chronic_conditions", "note"];
+  return keys.every((key) => {
+    const value = profile?.[key];
+    if (value === null || value === undefined) return true;
+    if (typeof value === "string") return !value.trim();
+    return false;
+  });
+}
+
+function clearProfileFormInputs() {
+  profileForm.querySelector("[name=display_name]").value = "";
+  profileForm.querySelector("[name=height_cm]").value = "";
+  profileForm.querySelector("[name=weight_kg]").value = "";
+  profileForm.querySelector("[name=birth_date]").value = "";
+  profileForm.querySelector("[name=sex]").value = "";
+  profileForm.querySelector("[name=chronic_conditions]").value = "";
+  profileForm.querySelector("[name=note]").value = "";
 }
 
 function getProfileSummaryText() {
@@ -1027,7 +1048,8 @@ async function loadProfile() {
   profileForm.querySelector("[name=sex]").value = profile.sex || "";
   profileForm.querySelector("[name=chronic_conditions]").value = profile.chronic_conditions || "";
   profileForm.querySelector("[name=note]").value = profile.note || "";
-  profileStatus.textContent = profile.updated_at ? `更新済み: ${new Date(profile.updated_at).toLocaleString("ja-JP")}` : "未保存";
+  profileStatus.textContent =
+    profile.updated_at && !isProfileEmpty(profile) ? `更新済み: ${new Date(profile.updated_at).toLocaleString("ja-JP")}` : "未保存";
   updateProfileDerived(profile);
   return data;
 }
@@ -1050,8 +1072,9 @@ async function saveProfile() {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload)
   });
-  profileStatus.textContent = "保存しました";
-  updateProfileDerived(data.profile || {});
+  const savedProfile = data.profile || {};
+  profileStatus.textContent = isProfileEmpty(savedProfile) ? "未保存" : "保存しました";
+  updateProfileDerived(savedProfile);
   return data;
 }
 
@@ -2161,6 +2184,26 @@ profileForm.addEventListener("input", () => {
   };
   updateProfileDerived(profile);
 });
+
+if (resetProfileBtn) {
+  resetProfileBtn.addEventListener("click", async () => {
+    const before = resetProfileBtn.textContent;
+    resetProfileBtn.disabled = true;
+    resetProfileBtn.textContent = "リセット中...";
+    try {
+      clearProfileFormInputs();
+      await saveProfile();
+      profileStatus.textContent = "未保存";
+      showToast("プロフィールを初期表示に戻しました");
+      show({ message: "プロフィールを初期表示に戻しました" });
+    } catch (error) {
+      reportError("プロフィール初期化エラー", error, profileStatus);
+    } finally {
+      resetProfileBtn.disabled = false;
+      resetProfileBtn.textContent = before;
+    }
+  });
+}
 
 exportUserBtn.addEventListener("click", async () => {
   exportUserBtn.disabled = true;
