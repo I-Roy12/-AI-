@@ -70,8 +70,6 @@ const shareStatus = document.querySelector("#share-status");
 const shareLinksList = document.querySelector("#share-links-list");
 const doctorNotesList = document.querySelector("#doctor-notes-list");
 const exportStatus = document.querySelector("#export-status");
-const seedDemoBtn = document.querySelector("#seed-demo-btn");
-const seedDemoStatus = document.querySelector("#seed-demo-status");
 const toast = document.querySelector("#toast");
 
 const speechSynthesisSupported = "speechSynthesis" in window;
@@ -1167,10 +1165,12 @@ function resetFormInputs() {
   }
   if (symptomsInput) symptomsInput.value = "";
   if (note) note.value = "";
-  setRangeValue("symptom_score", 5);
-  setRangeValue("mood_score", 5);
-  setRangeValue("sleep_quality_score", 5);
-  setSleepHours(7);
+  setRangeValue("symptom_score", 0);
+  setRangeValue("mood_score", 0);
+  setRangeValue("sleep_quality_score", 0);
+  setSleepHours(0);
+  const medicationInput = form.querySelector("[name=medication_status]");
+  if (medicationInput) medicationInput.value = "none";
   for (const chip of symptomChips) chip.classList.remove("active");
   if (logImageInput) logImageInput.value = "";
   setImageUiState({ dataUrl: "", name: "", status: "未添付" });
@@ -1451,19 +1451,6 @@ async function exportDoctorSummary() {
   return data;
 }
 
-async function seedDemoLogs(days = 12) {
-  const userId = getUserId();
-  return api("/api/v1/dev/seed-demo", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      user_id: userId,
-      days: Math.max(7, Math.min(120, Number(days) || 12)),
-      clear_existing: true
-    })
-  });
-}
-
 async function createDoctorShareLink() {
   const userId = getUserId();
   return api("/api/v1/share-links", {
@@ -1687,10 +1674,10 @@ form.addEventListener("submit", async (event) => {
       user_id: String(formData.get("user_id") || "u_123").trim(),
       recorded_at: normalizeRecordedAt(formData.get("recorded_at")),
       symptoms: symptoms.length ? symptoms : ["未入力"],
-      symptom_score: normalizeScore(formData.get("symptom_score"), 5),
-      mood_score: normalizeScore(formData.get("mood_score"), 5),
-      sleep_hours: normalizeSleepHours(formData.get("sleep_hours"), 7),
-      sleep_quality_score: normalizeScore(formData.get("sleep_quality_score"), 5),
+      symptom_score: normalizeScore(formData.get("symptom_score"), 0),
+      mood_score: normalizeScore(formData.get("mood_score"), 0),
+      sleep_hours: normalizeSleepHours(formData.get("sleep_hours"), 0),
+      sleep_quality_score: normalizeScore(formData.get("sleep_quality_score"), 0),
       medication_status: String(formData.get("medication_status") || "unknown"),
       note: String(formData.get("note") || ""),
       log_id: isEditing ? editingLogId : undefined,
@@ -2174,42 +2161,6 @@ profileForm.addEventListener("input", () => {
   };
   updateProfileDerived(profile);
 });
-
-if (seedDemoBtn) {
-  seedDemoBtn.addEventListener("click", async () => {
-    seedDemoBtn.disabled = true;
-    const before = seedDemoBtn.textContent;
-    seedDemoBtn.textContent = "投入中...";
-    if (seedDemoStatus) seedDemoStatus.textContent = "デモデータ投入中...";
-    try {
-      const data = await seedDemoLogs(12);
-      await refreshOverview();
-      await refreshInsights().catch(() => {});
-      if (!mypagePage.classList.contains("hidden")) {
-        await refreshChartBySelection().catch(() => {});
-      }
-      reviewDate.value = todayDateString();
-      const reviewed = await loadByDate(reviewDate.value).catch(() => ({ item: null }));
-      if (reviewed?.item) {
-        reviewView.textContent = `${reviewed.item.recorded_at} / 症状: ${(reviewed.item.symptoms || []).join("・")} / つらさ${reviewed.item.symptom_score} / 気分${reviewed.item.mood_score} / メモ: ${reviewed.item.note || "-"}`;
-        reviewedLogItem = reviewed.item;
-        if (reviewEditBtn) reviewEditBtn.classList.remove("hidden");
-      } else {
-        reviewView.textContent = "その日の記録はまだありません。";
-        if (reviewEditBtn) reviewEditBtn.classList.add("hidden");
-      }
-      if (seedDemoStatus) seedDemoStatus.textContent = `投入完了: ${data.logs_count || 0}件`;
-      show({ message: "デモ12日分を投入しました", seeded: data });
-      showToast("デモ12日分を投入しました");
-    } catch (error) {
-      if (seedDemoStatus) seedDemoStatus.textContent = `失敗: ${extractErrorMessage(error)}`;
-      reportError("デモデータ投入エラー", error, seedDemoStatus);
-    } finally {
-      seedDemoBtn.disabled = false;
-      seedDemoBtn.textContent = before;
-    }
-  });
-}
 
 exportUserBtn.addEventListener("click", async () => {
   exportUserBtn.disabled = true;

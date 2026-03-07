@@ -47,8 +47,8 @@
         <p id="editing-status" class="last-sync">新規記録モード</p>
         <form id="log-form">
           <input name="user_id" value="u_123" required type="hidden" />
-          <input name="recorded_at" value="2026-02-27T09:15:00+09:00" required type="hidden" />
-          <label>症状（カンマ区切り）<input name="symptoms" value="頭痛,不眠" required /></label>
+          <input name="recorded_at" value="" required type="hidden" />
+          <label>症状（カンマ区切り）<input name="symptoms" value="" required /></label>
           <div class="chips">
             <p class="chips-title">症状をタップして追加</p>
             <button type="button" class="chip symptom-chip" data-symptom="頭痛">頭痛</button>
@@ -62,26 +62,26 @@
           <div class="slider-wrap">
             <label for="symptom_score">つらさゲージ</label>
             <div class="slider-row">
-              <input id="symptom_score" name="symptom_score" type="range" min="0" max="10" value="6" />
-              <span class="meter" data-for="symptom_score">6</span>
+              <input id="symptom_score" name="symptom_score" type="range" min="0" max="10" value="0" />
+              <span class="meter" data-for="symptom_score">0</span>
             </div>
           </div>
 
           <div class="slider-wrap">
             <label for="mood_score">気分ゲージ</label>
             <div class="slider-row">
-              <input id="mood_score" name="mood_score" type="range" min="0" max="10" value="4" />
-              <span class="meter" data-for="mood_score">4</span>
+              <input id="mood_score" name="mood_score" type="range" min="0" max="10" value="0" />
+              <span class="meter" data-for="mood_score">0</span>
             </div>
           </div>
 
-          <label>睡眠時間<input name="sleep_hours" type="number" step="0.5" value="5.5" required /></label>
+          <label>睡眠時間<input name="sleep_hours" type="number" step="0.5" value="0" required /></label>
 
           <div class="slider-wrap">
             <label for="sleep_quality_score">睡眠の質ゲージ</label>
             <div class="slider-row">
-              <input id="sleep_quality_score" name="sleep_quality_score" type="range" min="0" max="10" value="3" />
-              <span class="meter" data-for="sleep_quality_score">3</span>
+              <input id="sleep_quality_score" name="sleep_quality_score" type="range" min="0" max="10" value="0" />
+              <span class="meter" data-for="sleep_quality_score">0</span>
             </div>
           </div>
 
@@ -96,12 +96,12 @@
           <label>
             服薬
             <select name="medication_status">
-              <option value="taken" selected>飲んだ</option>
+              <option value="taken">飲んだ</option>
               <option value="missed">飲み忘れ</option>
-              <option value="none">なし</option>
+              <option value="none" selected>なし</option>
             </select>
           </label>
-          <label>ひとことメモ<textarea name="note">午後にだるさが強い</textarea></label>
+          <label>ひとことメモ<textarea name="note"></textarea></label>
           <div class="image-box">
             <p class="chips-title">画像メモ（任意）</p>
             <div class="review-row">
@@ -278,12 +278,6 @@
 
       <section class="card">
         <h2>データ管理</h2>
-        <p class="sub">デモ表示用に、体調日記のサンプル12日分を自動投入できます。</p>
-        <div class="review-row">
-          <button id="seed-demo-btn">デモ12日分を投入</button>
-          <p id="seed-demo-status" class="last-sync">未実行</p>
-        </div>
-        <hr />
         <p class="sub">バックアップ用途として、あなたのデータをJSONで保存できます。</p>
         <div class="review-row">
           <button id="export-user-btn">データをJSONで保存</button>
