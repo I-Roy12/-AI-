@@ -72,6 +72,11 @@ const shareLinksList = document.querySelector("#share-links-list");
 const doctorNotesList = document.querySelector("#doctor-notes-list");
 const exportStatus = document.querySelector("#export-status");
 const toast = document.querySelector("#toast");
+const consentModal = document.querySelector("#consent-modal");
+const consentCheck = document.querySelector("#consent-check");
+const consentAgreeBtn = document.querySelector("#consent-agree-btn");
+const consentReloadBtn = document.querySelector("#consent-reload-btn");
+const consentStatus = document.querySelector("#consent-status");
 
 const speechSynthesisSupported = "speechSynthesis" in window;
 const settingsKey = "health_journal_ui_settings_v1";
@@ -92,6 +97,9 @@ let editingSourceDate = "";
 let reviewedLogItem = null;
 let imageClearRequested = false;
 let userLocation = null;
+let consentGranted = false;
+let consentStateChecked = false;
+let consentVersionRequired = "consent_v1";
 
 function getSpeechRecognitionCtor() {
   return (
@@ -120,6 +128,13 @@ function reportError(context, error, statusEl = null) {
   if (statusEl) statusEl.textContent = `${context}: ${message}`;
   show({ error: `${context}: ${message}` });
   showToast(`${context}: ${message}`, 2600);
+  const rawCode = getRawErrorCode(error);
+  if (rawCode === "consent_required" || rawCode === "consent_not_found") {
+    consentGranted = false;
+    consentStateChecked = true;
+    syncConsentUiLock();
+    setConsentModalVisible(true);
+  }
 }
 
 function showToast(message, timeoutMs = 2000) {
@@ -239,13 +254,16 @@ function localizeErrorMessage(raw, statusCode = 0) {
     too_many_login_attempts: "操作回数が上限に達しました。しばらく待ってから再試行してください",
     "no logs found": "記録が見つかりません。先に患者側で記録を保存してください",
     invalid_chronic_conditions: "持病の入力が長すぎます。600文字以内で入力してください",
-    clipboard_write_denied: "ブラウザのコピー権限がないため自動コピーできません。リンクを手動でコピーしてください"
+    clipboard_write_denied: "ブラウザのコピー権限がないため自動コピーできません。リンクを手動でコピーしてください",
+    consent_required: "データ保存には利用同意が必要です。画面の同意案内を確認してください",
+    consent_not_found: "利用同意が未登録です。画面の同意案内から同意してください"
   };
   if (map[code]) return map[code];
 
   if (statusCode === 401) return "認証が必要です。再ログインしてからもう一度お試しください";
   if (statusCode === 403) return "この操作を行う権限がありません。入力内容と権限設定を確認してください";
   if (statusCode === 404) return "対象データが見つかりません。最新状態を再読み込みしてから再試行してください";
+  if (statusCode === 428) return "この操作には利用同意が必要です。同意後に再試行してください";
   if (statusCode === 410) return "対象データは期限切れまたは失効済みです。再作成してください";
   return code;
 }
@@ -293,6 +311,87 @@ function getSymptomsInput() {
 
 function setSafeText(el, text) {
   el.textContent = text;
+}
+
+function setConsentModalVisible(visible) {
+  if (!consentModal) return;
+  consentModal.classList.toggle("hidden", !visible);
+}
+
+function syncConsentUiLock() {
+  const locked = !consentGranted;
+  if (submitBtn) submitBtn.disabled = locked;
+  if (saveProfileBtn) saveProfileBtn.disabled = locked;
+  if (createShareLinkBtn) createShareLinkBtn.disabled = locked;
+  if (consentStatus) {
+    consentStatus.textContent = locked
+      ? "未同意です。記録保存には同意が必要です。"
+      : `同意済み（${consentVersionRequired}）`;
+  }
+}
+
+function applyConsentPayload(data) {
+  const requiredVersion = String(data?.required?.consent_version || "").trim();
+  if (requiredVersion) consentVersionRequired = requiredVersion;
+  consentGranted = Boolean(data?.accepted);
+  consentStateChecked = true;
+  syncConsentUiLock();
+  setConsentModalVisible(!consentGranted);
+}
+
+async function loadLatestConsent() {
+  const userId = getUserId();
+  try {
+    const data = await api(`/api/v1/consent/latest?user_id=${encodeURIComponent(userId)}`);
+    applyConsentPayload(data);
+    return data;
+  } catch (error) {
+    const code = getRawErrorCode(error);
+    if (Number(error?.status || 0) === 404 || code === "consent_not_found") {
+      consentGranted = false;
+      consentStateChecked = true;
+      syncConsentUiLock();
+      setConsentModalVisible(true);
+      return null;
+    }
+    throw error;
+  }
+}
+
+async function saveConsentAgreement() {
+  const userId = getUserId();
+  const data = await api("/api/v1/consent", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      user_id: userId,
+      agreed: true,
+      consent_version: consentVersionRequired,
+      policy_version: consentVersionRequired,
+      scopes: ["daily_log", "profile", "doctor_share", "safety_check", "voice_transcribe"],
+      source: "web_modal"
+    })
+  });
+  applyConsentPayload(data);
+  return data;
+}
+
+async function ensureConsentForWrite(actionText = "保存") {
+  if (!consentStateChecked) {
+    try {
+      await loadLatestConsent();
+    } catch (error) {
+      reportError("同意状態確認エラー", error, consentStatus || null);
+      return false;
+    }
+  }
+  if (consentGranted) return true;
+  setConsentModalVisible(true);
+  if (consentStatus) {
+    consentStatus.textContent = `${actionText}には利用同意が必要です。`;
+  }
+  showToast("利用同意が必要です");
+  return false;
 }
 
 function formatLocalDateKey(dateObj) {
@@ -669,6 +768,7 @@ async function refreshOverview() {
 async function runSafetyCheckFromText(text, source) {
   const userId = getUserId();
   if (!text || !userId) return null;
+  if (!(await ensureConsentForWrite("安全チェック保存"))) return null;
   try {
     const result = await api("/api/v1/safety/evaluate", {
       method: "POST",
@@ -1335,6 +1435,7 @@ async function transcribeBlob(blob) {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
+      user_id: getUserId(),
       audio_base64: audioBase64,
       mime_type: blob.type || "audio/webm"
     })
@@ -1683,6 +1784,9 @@ function ensureRecognition() {
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
   const isEditing = Boolean(editingLogId);
+  if (!(await ensureConsentForWrite(isEditing ? "記録更新" : "記録保存"))) {
+    return;
+  }
   try {
     if (submitBtn) {
       submitBtn.disabled = true;
@@ -1841,6 +1945,9 @@ if (locClearBtn) {
 }
 
 safetyBtn.addEventListener("click", async () => {
+  if (!(await ensureConsentForWrite("安全チェック保存"))) {
+    return;
+  }
   try {
     const userId = getUserId();
     const data = await api("/api/v1/safety/evaluate", {
@@ -1892,8 +1999,12 @@ if (reviewEditBtn) {
 initDatetimeDefault();
 loadSettings();
 updateVoiceRouteText();
+syncConsentUiLock();
 refreshOverview().catch(() => {});
 loadProfile().catch(() => {});
+loadLatestConsent().catch((error) => {
+  reportError("同意状態確認エラー", error, consentStatus || null);
+});
 
 calendarBtn.addEventListener("click", async () => {
   try {
@@ -2119,6 +2230,9 @@ refreshBtn.addEventListener("click", async () => {
 
 profileForm.addEventListener("submit", async (event) => {
   event.preventDefault();
+  if (!(await ensureConsentForWrite("プロフィール保存"))) {
+    return;
+  }
   saveProfileBtn.disabled = true;
   const before = saveProfileBtn.textContent;
   saveProfileBtn.textContent = "保存中...";
@@ -2187,6 +2301,9 @@ profileForm.addEventListener("input", () => {
 
 if (resetProfileBtn) {
   resetProfileBtn.addEventListener("click", async () => {
+    if (!(await ensureConsentForWrite("プロフィール初期化"))) {
+      return;
+    }
     const before = resetProfileBtn.textContent;
     resetProfileBtn.disabled = true;
     resetProfileBtn.textContent = "リセット中...";
@@ -2244,6 +2361,9 @@ if (exportDoctorSummaryBtn) {
 
 if (createShareLinkBtn) {
   createShareLinkBtn.addEventListener("click", async () => {
+    if (!(await ensureConsentForWrite("共有リンク発行"))) {
+      return;
+    }
     createShareLinkBtn.disabled = true;
     const before = createShareLinkBtn.textContent;
     createShareLinkBtn.textContent = "発行中...";
@@ -2306,6 +2426,50 @@ window.addEventListener("resize", () => {
   if (mypagePage.classList.contains("hidden")) return;
   refreshChartBySelection().catch(() => {});
 });
+
+if (consentAgreeBtn) {
+  consentAgreeBtn.addEventListener("click", async () => {
+    if (!consentCheck?.checked) {
+      if (consentStatus) consentStatus.textContent = "同意チェックを入れてから進んでください。";
+      return;
+    }
+    const before = consentAgreeBtn.textContent;
+    consentAgreeBtn.disabled = true;
+    consentAgreeBtn.textContent = "保存中...";
+    try {
+      await saveConsentAgreement();
+      setConsentModalVisible(false);
+      if (consentCheck) consentCheck.checked = false;
+      showToast("同意を登録しました");
+      await refreshOverview().catch(() => {});
+      await loadProfile().catch(() => {});
+    } catch (error) {
+      reportError("同意保存エラー", error, consentStatus || null);
+    } finally {
+      consentAgreeBtn.disabled = false;
+      consentAgreeBtn.textContent = before;
+    }
+  });
+}
+
+if (consentReloadBtn) {
+  consentReloadBtn.addEventListener("click", async () => {
+    const before = consentReloadBtn.textContent;
+    consentReloadBtn.disabled = true;
+    consentReloadBtn.textContent = "確認中...";
+    try {
+      await loadLatestConsent();
+      if (consentGranted) {
+        setConsentModalVisible(false);
+      }
+    } catch (error) {
+      reportError("同意状態確認エラー", error, consentStatus || null);
+    } finally {
+      consentReloadBtn.disabled = false;
+      consentReloadBtn.textContent = before;
+    }
+  });
+}
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {

@@ -303,6 +303,25 @@
       </div>
     </main>
 
+    <div id="consent-modal" class="consent-modal hidden" role="dialog" aria-modal="true" aria-labelledby="consent-title">
+      <div class="consent-card">
+        <h2 id="consent-title">ご利用前の同意</h2>
+        <p>
+          体調記録（症状・睡眠・メモ・画像・音声入力）は、要約表示と医師共有機能のために保存されます。<br />
+          このアプリのAI出力は診断確定ではなく、受診判断を補助する参考情報です。
+        </p>
+        <label class="consent-check">
+          <input id="consent-check" type="checkbox" />
+          内容を確認し、データ利用に同意します
+        </label>
+        <div class="review-row">
+          <button id="consent-agree-btn" type="button">同意して開始</button>
+          <button id="consent-reload-btn" type="button">状態を再確認</button>
+        </div>
+        <p id="consent-status" class="last-sync">未同意です。記録保存には同意が必要です。</p>
+      </div>
+    </div>
+
     <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
 
     <script src="/app.js" type="module"></script>

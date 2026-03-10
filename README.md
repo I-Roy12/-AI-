@@ -23,6 +23,7 @@
 - AI出力: 今日の要約、7日傾向、次の一歩、相談先候補
 - 近隣提案: 位置情報（任意）を使った近い医療機関の候補並び替え
 - 安全機能: 緊急ワード判定、リスク表示、音声入力直後の自動チェック
+- 同意管理: 初回同意モーダル、同意未登録時の保存ブロック（記録/プロフィール/共有）
 - マイページ: プロフィール、カレンダー、推移グラフ、記録統計
 - 医師共有: 医師向けサマリーJSON、期限付き共有リンク（発行/失効）
 - 医師ビュー: 別ページ閲覧、医師ログイン、医師コメント保存
@@ -121,6 +122,7 @@
 - `UPLOAD_DIR`: 画像保存先（未設定時は `DATA_DIR/uploads`）
 - `DOCTOR_COOKIE_SECURE`: `true/false`（既定は `NODE_ENV=production` なら `true`）
 - `OPENAI_API_KEY`: 音声ファイル文字起こしを有効化
+- `CONSENT_VERSION`: 保存系APIで要求する同意バージョン（既定: `consent_v1`）
 
 ## 外出先から常時アクセスする方法（Macを閉じても見られる構成）
 ローカルPC配信ではなく、クラウドへデプロイします。  
@@ -217,6 +219,10 @@ curl "http://localhost:8787/api/v1/patient/doctor-notes?user_id=u_123"
 curl -X POST http://localhost:8787/api/v1/safety/evaluate \
   -H "Content-Type: application/json" \
   -d '{"user_id":"u_123","text":"胸が強く痛いし息が苦しい"}'
+
+curl -X POST http://localhost:8787/api/v1/consent \
+  -H "Content-Type: application/json" \
+  -d '{"user_id":"u_123","agreed":true}'
 
 curl -X POST http://localhost:8787/api/v1/share-links \
   -H "Content-Type: application/json" \

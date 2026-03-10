@@ -14,6 +14,8 @@
 ## POST /logs/daily
 日次の体調記録を登録する
 
+※ 同意未登録の場合は `428 consent_required`
+
 ### request
 ```json
 {
@@ -100,6 +102,8 @@
 ## POST /safety/evaluate
 安全判定を行う
 
+※ 同意未登録の場合は `428 consent_required`
+
 ### request
 ```json
 {
@@ -153,7 +157,52 @@
 }
 ```
 
+## GET /consent/latest?user_id={id}
+利用同意の最新状態を返す
+
+### response
+```json
+{
+  "required": {
+    "consent_version": "consent_v1",
+    "scopes": ["daily_log", "profile", "doctor_share", "safety_check", "voice_transcribe"]
+  },
+  "accepted": true,
+  "consent": {
+    "consent_id": "cns_001",
+    "user_id": "u_123",
+    "agreed": true,
+    "consent_version": "consent_v1",
+    "agreed_at": "2026-03-11T00:00:00.000Z"
+  }
+}
+```
+
+## POST /consent
+利用同意を保存する
+
+### request
+```json
+{
+  "user_id": "u_123",
+  "agreed": true
+}
+```
+
+### response
+```json
+{
+  "status": "saved",
+  "required": {
+    "consent_version": "consent_v1",
+    "scopes": ["daily_log", "profile", "doctor_share", "safety_check", "voice_transcribe"]
+  },
+  "accepted": true
+}
+```
+
 ## 3. エラー方針
 - 4xx: 入力不備
 - 5xx: サーバー障害
+- 428: 同意前提の保存操作で同意未登録（`consent_required`）
 - 安全判定失敗時はフェイルセーフで通常応答を停止し、受診相談導線のみ返す

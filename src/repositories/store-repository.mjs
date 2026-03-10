@@ -6,6 +6,7 @@ function emptyStore() {
     insights: [],
     safetyEvents: [],
     profiles: {},
+    consents: [],
     shareLinks: [],
     shareAccessLogs: [],
     doctorNotes: [],
@@ -30,6 +31,7 @@ export function createStoreRepository({ dataDirPath, dataStorePath }) {
     store.insights = asArray(raw.insights);
     store.safetyEvents = asArray(raw.safetyEvents);
     store.profiles = asObject(raw.profiles);
+    store.consents = asArray(raw.consents);
     store.shareLinks = asArray(raw.shareLinks);
     store.shareAccessLogs = asArray(raw.shareAccessLogs);
     store.doctorNotes = asArray(raw.doctorNotes);
@@ -86,6 +88,29 @@ export function createStoreRepository({ dataDirPath, dataStorePath }) {
   function setProfile(userId, profile) {
     store.profiles[userId] = profile;
     return store.profiles[userId];
+  }
+
+  function addConsent(item) {
+    store.consents.push(item);
+    return item;
+  }
+
+  function listConsentsByUser(userId) {
+    return store.consents
+      .filter((item) => item.user_id === userId)
+      .sort((a, b) => new Date(a.agreed_at).getTime() - new Date(b.agreed_at).getTime());
+  }
+
+  function getLatestConsentByUser(userId) {
+    for (let i = store.consents.length - 1; i >= 0; i -= 1) {
+      const item = store.consents[i];
+      if (item.user_id === userId) return item;
+    }
+    return null;
+  }
+
+  function removeConsentsByUser(userId) {
+    store.consents = store.consents.filter((item) => item.user_id !== userId);
   }
 
   function listInsightsByUser(userId) {
@@ -207,6 +232,10 @@ export function createStoreRepository({ dataDirPath, dataStorePath }) {
     removeLogsByUser,
     getProfile,
     setProfile,
+    addConsent,
+    listConsentsByUser,
+    getLatestConsentByUser,
+    removeConsentsByUser,
     listInsightsByUser,
     addInsight,
     removeInsightsByUser,

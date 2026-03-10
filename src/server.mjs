@@ -36,6 +36,8 @@ const DOCTOR_SESSION_HOURS = 12;
 const DOCTOR_DEMO_EMAIL = process.env.DOCTOR_DEMO_EMAIL || "doctor@example.com";
 const DOCTOR_DEMO_PASSWORD = process.env.DOCTOR_DEMO_PASSWORD || "doctor1234";
 const DOCTOR_COOKIE_SECURE = readBooleanEnv("DOCTOR_COOKIE_SECURE", process.env.NODE_ENV === "production");
+const CONSENT_VERSION = String(process.env.CONSENT_VERSION || "consent_v1").trim() || "consent_v1";
+const CONSENT_DEFAULT_SCOPES = ["daily_log", "profile", "doctor_share", "safety_check", "voice_transcribe"];
 
 const safetyRulesPath = path.join(ROOT, "core/config/safety-rules-v0.1.json");
 const symptomMapPath = path.join(ROOT, "core/config/symptom-category-map-v0.1.json");
@@ -443,6 +445,69 @@ function normalizeDailyLogInput(input) {
     image_data_url: imageDataUrlRaw,
     image_name: imageNameRaw
   };
+}
+
+function normalizeConsentScopes(raw) {
+  if (!Array.isArray(raw)) return CONSENT_DEFAULT_SCOPES.slice();
+  const normalized = raw
+    .map((item) => String(item || "").trim())
+    .filter(Boolean)
+    .slice(0, 20);
+  return normalized.length ? Array.from(new Set(normalized)) : CONSENT_DEFAULT_SCOPES.slice();
+}
+
+function sanitizeConsentInput(body, meta = {}) {
+  const userId = String(body.user_id || "").trim();
+  if (!userId) {
+    const err = new Error("missing user_id");
+    err.statusCode = 400;
+    throw err;
+  }
+  const consentVersion = String(body.consent_version || CONSENT_VERSION).trim() || CONSENT_VERSION;
+  const policyVersion = String(body.policy_version || consentVersion).trim() || consentVersion;
+  const source = String(body.source || "in_app_modal").trim().slice(0, 60) || "in_app_modal";
+  const note = String(body.note || "").trim().slice(0, 300);
+  return {
+    consent_id: `cns_${randomUUID()}`,
+    user_id: userId,
+    agreed: Boolean(body.agreed),
+    consent_version: consentVersion,
+    policy_version: policyVersion,
+    scopes: normalizeConsentScopes(body.scopes),
+    source,
+    note,
+    ip_address: String(meta.ipAddress || ""),
+    user_agent: String(meta.userAgent || "").slice(0, 300),
+    agreed_at: new Date().toISOString()
+  };
+}
+
+function isConsentAccepted(consent) {
+  if (!consent) return false;
+  if (!consent.agreed) return false;
+  return String(consent.consent_version || "") === CONSENT_VERSION;
+}
+
+function consentResponseEnvelope(consent) {
+  return {
+    required: {
+      consent_version: CONSENT_VERSION,
+      scopes: CONSENT_DEFAULT_SCOPES
+    },
+    accepted: isConsentAccepted(consent),
+    consent: consent || null
+  };
+}
+
+function requireConsentForWrite(userId, res) {
+  const latestConsent = storeRepository.getLatestConsentByUser(userId);
+  if (isConsentAccepted(latestConsent)) return latestConsent;
+  sendJson(res, 428, {
+    error: "consent_required",
+    message: "データ保存の前に利用同意が必要です。",
+    ...consentResponseEnvelope(latestConsent)
+  });
+  return null;
 }
 
 function getUserLogs(userId) {
@@ -864,7 +929,8 @@ const server = createServer(async (req, res) => {
           port: Number(PORT),
           max_json_body_bytes: MAX_JSON_BODY_BYTES,
           voice_transcribe_enabled: Boolean(OPENAI_API_KEY),
-          data_dir: dataDirPath
+          data_dir: dataDirPath,
+          consent_version: CONSENT_VERSION
         }
       });
     }
@@ -971,6 +1037,34 @@ const server = createServer(async (req, res) => {
       );
     }
 
+    if (method === "GET" && pathname === "/api/v1/consent/latest") {
+      const userId = requestUrl.searchParams.get("user_id");
+      if (!userId) return sendJson(res, 400, { error: "missing user_id" });
+      const consent = storeRepository.getLatestConsentByUser(userId);
+      if (!consent) {
+        return sendJson(res, 404, {
+          error: "consent_not_found",
+          message: "利用同意がまだ登録されていません。",
+          ...consentResponseEnvelope(null)
+        });
+      }
+      return sendJson(res, 200, consentResponseEnvelope(consent));
+    }
+
+    if (method === "POST" && pathname === "/api/v1/consent") {
+      const body = await parseJsonBody(req);
+      const consent = sanitizeConsentInput(body, {
+        ipAddress: requestIp(req),
+        userAgent: req.headers["user-agent"]
+      });
+      storeRepository.addConsent(consent);
+      await storeRepository.persist();
+      return sendJson(res, 200, {
+        status: "saved",
+        ...consentResponseEnvelope(consent)
+      });
+    }
+
     if (method === "GET" && pathname === "/api/v1/profile") {
       const userId = requestUrl.searchParams.get("user_id");
       if (!userId) return sendJson(res, 400, { error: "missing user_id" });
@@ -980,7 +1074,8 @@ const server = createServer(async (req, res) => {
     if (method === "POST" && pathname === "/api/v1/profile") {
       const body = await parseJsonBody(req);
       if (!body.user_id) return sendJson(res, 400, { error: "missing user_id" });
-      const userId = String(body.user_id);
+      const userId = String(body.user_id || "").trim();
+      if (!requireConsentForWrite(userId, res)) return;
       const profile = sanitizeProfileInput(body);
       const savedProfile = storeRepository.setProfile(userId, {
         ...profile,
@@ -997,11 +1092,13 @@ const server = createServer(async (req, res) => {
       const insights = storeRepository.listInsightsByUser(userId);
       const safetyEvents = storeRepository.listSafetyEventsByUser(userId);
       const doctorNotes = storeRepository.listDoctorNotesByUser(userId);
+      const consents = storeRepository.listConsentsByUser(userId);
       const profile = storeRepository.getProfile(userId);
       return sendJson(res, 200, {
         exported_at: new Date().toISOString(),
         user_id: userId,
         profile,
+        consents,
         logs,
         insights,
         safety_events: safetyEvents,
@@ -1019,8 +1116,9 @@ const server = createServer(async (req, res) => {
 
     if (method === "POST" && pathname === "/api/v1/share-links") {
       const body = await parseJsonBody(req);
-      const userId = String(body.user_id || "");
+      const userId = String(body.user_id || "").trim();
       if (!userId) return sendJson(res, 400, { error: "missing user_id" });
+      if (!requireConsentForWrite(userId, res)) return;
       const expiresHours = Math.max(1, Math.min(72, Number(body.expires_hours || 24)));
       const windowDays = Math.max(7, Math.min(90, Number(body.window_days || 14)));
       const now = new Date();
@@ -1278,6 +1376,7 @@ const server = createServer(async (req, res) => {
         storeRepository.removeLogsByUser(userId);
         storeRepository.removeInsightsByUser(userId);
         storeRepository.removeSafetyEventsByUser(userId);
+        storeRepository.removeConsentsByUser(userId);
         storeRepository.removeShareLinksByUser(userId);
         storeRepository.removeShareAccessLogsByUser(userId);
         storeRepository.removeDoctorNotesByUser(userId);
@@ -1295,6 +1394,19 @@ const server = createServer(async (req, res) => {
         chronic_conditions: "花粉症（春）",
         note: "デモ表示用のプロフィール",
         updated_at: new Date().toISOString()
+      });
+      storeRepository.addConsent({
+        consent_id: `cns_${randomUUID()}`,
+        user_id: userId,
+        agreed: true,
+        consent_version: CONSENT_VERSION,
+        policy_version: CONSENT_VERSION,
+        scopes: CONSENT_DEFAULT_SCOPES.slice(),
+        source: "seed_demo",
+        note: "seed demo",
+        ip_address: "seed",
+        user_agent: "seed",
+        agreed_at: new Date().toISOString()
       });
       await storeRepository.persist();
       return sendJson(res, 200, { status: "seeded", user_id: userId, logs_count: seededLogs.length });
@@ -1385,6 +1497,7 @@ const server = createServer(async (req, res) => {
     if (method === "POST" && pathname === "/api/v1/logs/daily") {
       const bodyRaw = await parseJsonBody(req);
       const body = normalizeDailyLogInput(bodyRaw);
+      if (!requireConsentForWrite(body.user_id, res)) return;
       const validationError = validateLogInput(body);
       if (validationError) {
         return sendJson(res, 400, { error: validationError });
@@ -1597,6 +1710,7 @@ const server = createServer(async (req, res) => {
       if (!body.user_id || !body.text) {
         return sendJson(res, 400, { error: "user_id and text are required" });
       }
+      if (!requireConsentForWrite(String(body.user_id || "").trim(), res)) return;
       const result = safetyService.evaluateSafety(body.text);
       storeRepository.addSafetyEvent({
         event_id: `sev_${randomUUID()}`,
@@ -1613,6 +1727,11 @@ const server = createServer(async (req, res) => {
 
     if (method === "POST" && pathname === "/api/v1/voice/transcribe") {
       const body = await parseJsonBody(req);
+      const userId = String(body.user_id || "").trim();
+      if (!userId) {
+        return sendJson(res, 400, { error: "missing user_id" });
+      }
+      if (!requireConsentForWrite(userId, res)) return;
       if (!body.audio_base64) {
         return sendJson(res, 400, { error: "audio_base64 is required" });
       }
