@@ -11,6 +11,7 @@
 - `docs/data-model-v0.1.md`: 最小データモデル
 - `docs/demo-runbook-v1.md`: デモ実施手順（3分版）
 - `docs/render-deploy-v1.md`: Render常時公開の手順
+- `docs/legal-prelaunch-checklist-v1.md`: 公開前リーガルチェック（実装タスク付き）
 
 ## 実装用ファイル
 - `core/spec/openapi-v0.1.yaml`: OpenAPI雛形
