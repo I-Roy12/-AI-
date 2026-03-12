@@ -100,6 +100,7 @@ let userLocation = null;
 let consentGranted = false;
 let consentStateChecked = false;
 let consentVersionRequired = "consent_v1";
+let consentFetchSeq = 0;
 
 function getSpeechRecognitionCtor() {
   return (
@@ -340,13 +341,18 @@ function applyConsentPayload(data) {
 }
 
 async function loadLatestConsent() {
+  const seq = ++consentFetchSeq;
   const userId = getUserId();
   try {
     const data = await api(`/api/v1/consent/latest?user_id=${encodeURIComponent(userId)}`);
+    if (seq !== consentFetchSeq) return data;
     applyConsentPayload(data);
     return data;
   } catch (error) {
     const code = getRawErrorCode(error);
+    const requiredVersion = String(error?.payload?.required?.consent_version || "").trim();
+    if (requiredVersion) consentVersionRequired = requiredVersion;
+    if (seq !== consentFetchSeq) return null;
     if (Number(error?.status || 0) === 404 || code === "consent_not_found") {
       consentGranted = false;
       consentStateChecked = true;
@@ -360,18 +366,27 @@ async function loadLatestConsent() {
 
 async function saveConsentAgreement() {
   const userId = getUserId();
-  const data = await api("/api/v1/consent", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      user_id: userId,
-      agreed: true,
-      consent_version: consentVersionRequired,
-      policy_version: consentVersionRequired,
-      scopes: ["daily_log", "profile", "doctor_share", "safety_check", "voice_transcribe"],
-      source: "web_modal"
-    })
-  });
+  const doPost = async (version) =>
+    api("/api/v1/consent", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        user_id: userId,
+        agreed: true,
+        consent_version: version,
+        policy_version: version,
+        scopes: ["daily_log", "profile", "doctor_share", "safety_check", "voice_transcribe"],
+        source: "web_modal"
+      })
+    });
+
+  let data = await doPost(consentVersionRequired);
+  const requiredVersion = String(data?.required?.consent_version || "").trim();
+  if (!data?.accepted && requiredVersion && requiredVersion !== consentVersionRequired) {
+    consentVersionRequired = requiredVersion;
+    data = await doPost(consentVersionRequired);
+  }
+  consentFetchSeq += 1;
   applyConsentPayload(data);
   return data;
 }
@@ -2439,6 +2454,7 @@ if (consentAgreeBtn) {
     try {
       await saveConsentAgreement();
       setConsentModalVisible(false);
+      switchPage("record");
       if (consentCheck) consentCheck.checked = false;
       showToast("同意を登録しました");
       await refreshOverview().catch(() => {});
