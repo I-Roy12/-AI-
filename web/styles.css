@@ -751,6 +751,10 @@ input[type="range"]::-moz-range-thumb {
   padding: 16px;
 }
 
+.consent-modal.hidden {
+  display: none !important;
+}
+
 .consent-card {
   width: min(680px, 100%);
   border-radius: 14px;
