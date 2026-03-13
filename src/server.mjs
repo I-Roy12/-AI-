@@ -1202,6 +1202,36 @@ const server = createServer(async (req, res) => {
       return sendJson(res, 200, { items });
     }
 
+    if (method === "POST" && pathname === "/api/v1/share-links/revoke-all") {
+      const body = await parseJsonBody(req);
+      const userId = String(body.user_id || "").trim();
+      if (!userId) return sendJson(res, 400, { error: "missing user_id" });
+      const nowIso = new Date().toISOString();
+      const links = storeRepository
+        .listShareLinksByUser(userId)
+        .filter((link) => link.user_id === userId && shareLinkStatus(link) === "active");
+
+      let revoked = 0;
+      for (const link of links) {
+        const changed = storeRepository.revokeShareLink(link.share_id, nowIso);
+        if (!changed) continue;
+        revoked += 1;
+        auditLogService.record({
+          eventType: auditEventTypes.shareLinkRevoked,
+          actor: userId,
+          target: link.share_id,
+          metadata: { bulk: true }
+        });
+      }
+      await storeRepository.persist();
+      return sendJson(res, 200, {
+        status: "ok",
+        user_id: userId,
+        active_found: links.length,
+        revoked
+      });
+    }
+
     if (method === "DELETE" && pathname.startsWith("/api/v1/share-links/")) {
       const shareId = pathname.replace("/api/v1/share-links/", "");
       const userId = requestUrl.searchParams.get("user_id");

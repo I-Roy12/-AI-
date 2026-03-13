@@ -1618,21 +1618,38 @@ async function revokeShareLink(shareId) {
 
 async function revokeAllShareLinks() {
   const userId = getUserId();
-  const listed = await api(`/api/v1/share-links?user_id=${encodeURIComponent(userId)}`);
-  const items = Array.isArray(listed?.items) ? listed.items : [];
-  const active = items.filter((item) => String(item.status || "") === "active");
-  let revoked = 0;
-  let failed = 0;
-  for (const item of active) {
-    try {
-      await revokeShareLink(item.share_id);
-      revoked += 1;
-    } catch (_) {
-      failed += 1;
+  try {
+    const bulk = await api("/api/v1/share-links/revoke-all", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ user_id: userId })
+    });
+    await loadShareLinks().catch(() => {});
+    return {
+      total: Number(bulk.active_found || 0),
+      active: Number(bulk.active_found || 0),
+      revoked: Number(bulk.revoked || 0),
+      failed: Math.max(0, Number(bulk.active_found || 0) - Number(bulk.revoked || 0))
+    };
+  } catch (error) {
+    if (Number(error?.status || 0) !== 404) throw error;
+    // Backward compatibility: old server without bulk endpoint.
+    const listed = await api(`/api/v1/share-links?user_id=${encodeURIComponent(userId)}`);
+    const items = Array.isArray(listed?.items) ? listed.items : [];
+    const active = items.filter((item) => String(item.status || "") === "active");
+    let revoked = 0;
+    let failed = 0;
+    for (const item of active) {
+      try {
+        await revokeShareLink(item.share_id);
+        revoked += 1;
+      } catch (_) {
+        failed += 1;
+      }
     }
+    await loadShareLinks().catch(() => {});
+    return { total: items.length, active: active.length, revoked, failed };
   }
-  await loadShareLinks().catch(() => {});
-  return { total: items.length, active: active.length, revoked, failed };
 }
 
 async function seedDemoLogs(days = 12) {

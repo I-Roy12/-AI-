@@ -201,6 +201,26 @@
 }
 ```
 
+## POST /share-links/revoke-all
+発行済み共有リンクを一括失効する
+
+### request
+```json
+{
+  "user_id": "u_123"
+}
+```
+
+### response
+```json
+{
+  "status": "ok",
+  "user_id": "u_123",
+  "active_found": 3,
+  "revoked": 3
+}
+```
+
 ## 3. エラー方針
 - 4xx: 入力不備
 - 5xx: サーバー障害
