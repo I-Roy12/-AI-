@@ -33,9 +33,12 @@ const DATA_STORE_PATH = process.env.DATA_STORE_PATH
 const UPLOAD_DIR = process.env.UPLOAD_DIR ? path.resolve(process.env.UPLOAD_DIR) : path.join(DATA_DIR, "uploads");
 const DOCTOR_SESSION_COOKIE = "doctor_session";
 const DOCTOR_SESSION_HOURS = 12;
-const DOCTOR_DEMO_EMAIL = process.env.DOCTOR_DEMO_EMAIL || "doctor@example.com";
-const DOCTOR_DEMO_PASSWORD = process.env.DOCTOR_DEMO_PASSWORD || "doctor1234";
+const DEFAULT_DOCTOR_DEMO_EMAIL = "doctor@example.com";
+const DEFAULT_DOCTOR_DEMO_PASSWORD = "doctor1234";
+const DOCTOR_DEMO_EMAIL = process.env.DOCTOR_DEMO_EMAIL || DEFAULT_DOCTOR_DEMO_EMAIL;
+const DOCTOR_DEMO_PASSWORD = process.env.DOCTOR_DEMO_PASSWORD || DEFAULT_DOCTOR_DEMO_PASSWORD;
 const DOCTOR_COOKIE_SECURE = readBooleanEnv("DOCTOR_COOKIE_SECURE", process.env.NODE_ENV === "production");
+const STRICT_PROD_DOCTOR_CRED_GUARD = readBooleanEnv("STRICT_PROD_DOCTOR_CRED_GUARD", false);
 const CONSENT_VERSION = String(process.env.CONSENT_VERSION || "consent_v1").trim() || "consent_v1";
 const CONSENT_DEFAULT_SCOPES = ["daily_log", "profile", "doctor_share", "safety_check", "voice_transcribe"];
 
@@ -119,7 +122,30 @@ let doctorSummaryService;
 let doctorAuthService;
 let auditLogService;
 
+function isProductionLike() {
+  return String(process.env.NODE_ENV || "").trim().toLowerCase() === "production";
+}
+
+function usingDefaultDoctorCredentials() {
+  return DOCTOR_DEMO_EMAIL === DEFAULT_DOCTOR_DEMO_EMAIL && DOCTOR_DEMO_PASSWORD === DEFAULT_DOCTOR_DEMO_PASSWORD;
+}
+
+function enforceDoctorCredentialGuard() {
+  if (!isProductionLike()) return;
+  if (!usingDefaultDoctorCredentials()) return;
+  const warning =
+    "[SECURITY WARNING] NODE_ENV=production でデモ医師認証値(doctor@example.com / doctor1234)が使用されています。";
+  // eslint-disable-next-line no-console
+  console.warn(warning);
+  if (STRICT_PROD_DOCTOR_CRED_GUARD) {
+    const err = new Error("production_default_doctor_credentials_blocked");
+    err.statusCode = 500;
+    throw err;
+  }
+}
+
 async function bootstrapConfig() {
+  enforceDoctorCredentialGuard();
   await storeRepository.init();
   const [safetyRaw, symptomRaw] = await Promise.all([
     readFile(safetyRulesPath, "utf8"),
@@ -930,7 +956,9 @@ const server = createServer(async (req, res) => {
           max_json_body_bytes: MAX_JSON_BODY_BYTES,
           voice_transcribe_enabled: Boolean(OPENAI_API_KEY),
           data_dir: dataDirPath,
-          consent_version: CONSENT_VERSION
+          consent_version: CONSENT_VERSION,
+          strict_prod_doctor_cred_guard: STRICT_PROD_DOCTOR_CRED_GUARD,
+          production_default_doctor_credentials: isProductionLike() && usingDefaultDoctorCredentials()
         }
       });
     }

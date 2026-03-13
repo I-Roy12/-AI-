@@ -121,6 +121,7 @@
 - `DATA_STORE_PATH`: storeファイルのフルパス（未設定時は `DATA_DIR/store.json`）
 - `UPLOAD_DIR`: 画像保存先（未設定時は `DATA_DIR/uploads`）
 - `DOCTOR_COOKIE_SECURE`: `true/false`（既定は `NODE_ENV=production` なら `true`）
+- `STRICT_PROD_DOCTOR_CRED_GUARD`: `true/false`（`true` の場合、本番でデモ医師認証値のまま起動を停止）
 - `OPENAI_API_KEY`: 音声ファイル文字起こしを有効化
 - `CONSENT_VERSION`: 保存系APIで要求する同意バージョン（既定: `consent_v1`）
 
