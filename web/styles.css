@@ -630,7 +630,7 @@ input[type="range"]::-moz-range-thumb {
   border-radius: 999px;
   padding: 10px 14px;
   font-size: 13px;
-  z-index: 1000;
+  z-index: 1400;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
 }
 
@@ -888,6 +888,12 @@ input[type="range"]::-moz-range-thumb {
 }
 
 @media (max-width: 900px) {
+  .toast {
+    bottom: calc(96px + env(safe-area-inset-bottom));
+    max-width: calc(100vw - 24px);
+    text-align: center;
+  }
+
   .tab-card {
     position: fixed;
     left: max(12px, env(safe-area-inset-left));
