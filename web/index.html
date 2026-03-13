@@ -299,6 +299,23 @@
         <ul id="doctor-notes-list" class="recent-list">
           <li>まだコメントはありません</li>
         </ul>
+        <hr />
+        <p class="sub">公開前クリーンアップ（デモ公開向け）</p>
+        <div class="review-row">
+          <button id="revoke-all-share-btn" type="button">共有リンクを全失効</button>
+          <button id="seed-demo-clean-btn" type="button">実データ削除→デモ12日再投入</button>
+          <p id="cleanup-status" class="last-sync">未実行</p>
+        </div>
+        <hr />
+        <p class="sub">note掲載用の注意文（コピーして本文へ貼り付け）</p>
+        <label>
+          note公開用テキスト
+          <textarea id="note-disclaimer-text" readonly>【デモ版のお知らせ】このページは体調日記AIアプリのデモ版です。診断を行うサービスではなく、受診判断を補助する参考情報を表示します。個人情報・健康情報などの機微情報は入力しないでください。</textarea>
+        </label>
+        <div class="review-row">
+          <button id="copy-note-disclaimer-btn" type="button">note注意文をコピー</button>
+          <p id="note-disclaimer-status" class="last-sync">未コピー</p>
+        </div>
       </section>
       </div>
     </main>

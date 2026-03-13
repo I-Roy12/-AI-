@@ -71,6 +71,12 @@ const shareStatus = document.querySelector("#share-status");
 const shareLinksList = document.querySelector("#share-links-list");
 const doctorNotesList = document.querySelector("#doctor-notes-list");
 const exportStatus = document.querySelector("#export-status");
+const revokeAllShareBtn = document.querySelector("#revoke-all-share-btn");
+const seedDemoCleanBtn = document.querySelector("#seed-demo-clean-btn");
+const cleanupStatus = document.querySelector("#cleanup-status");
+const noteDisclaimerText = document.querySelector("#note-disclaimer-text");
+const copyNoteDisclaimerBtn = document.querySelector("#copy-note-disclaimer-btn");
+const noteDisclaimerStatus = document.querySelector("#note-disclaimer-status");
 const toast = document.querySelector("#toast");
 const consentModal = document.querySelector("#consent-modal");
 const consentCheck = document.querySelector("#consent-check");
@@ -1610,6 +1616,38 @@ async function revokeShareLink(shareId) {
   });
 }
 
+async function revokeAllShareLinks() {
+  const userId = getUserId();
+  const listed = await api(`/api/v1/share-links?user_id=${encodeURIComponent(userId)}`);
+  const items = Array.isArray(listed?.items) ? listed.items : [];
+  const active = items.filter((item) => String(item.status || "") === "active");
+  let revoked = 0;
+  let failed = 0;
+  for (const item of active) {
+    try {
+      await revokeShareLink(item.share_id);
+      revoked += 1;
+    } catch (_) {
+      failed += 1;
+    }
+  }
+  await loadShareLinks().catch(() => {});
+  return { total: items.length, active: active.length, revoked, failed };
+}
+
+async function seedDemoLogs(days = 12) {
+  const userId = getUserId();
+  return api("/api/v1/dev/seed-demo", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      user_id: userId,
+      days: Math.max(7, Math.min(120, Number(days) || 12)),
+      clear_existing: true
+    })
+  });
+}
+
 function absoluteUrl(path) {
   return `${window.location.origin}${path}`;
 }
@@ -2409,6 +2447,86 @@ if (createShareLinkBtn) {
     } finally {
       createShareLinkBtn.disabled = false;
       createShareLinkBtn.textContent = before;
+    }
+  });
+}
+
+if (revokeAllShareBtn) {
+  revokeAllShareBtn.addEventListener("click", async () => {
+    const ok = window.confirm("現在発行済みの共有リンクを全て失効します。続けますか？");
+    if (!ok) return;
+    const before = revokeAllShareBtn.textContent;
+    revokeAllShareBtn.disabled = true;
+    revokeAllShareBtn.textContent = "失効中...";
+    if (cleanupStatus) cleanupStatus.textContent = "共有リンクを失効しています...";
+    try {
+      const result = await revokeAllShareLinks();
+      const msg = `失効完了: 対象${result.active}件 / 失効${result.revoked}件 / 失敗${result.failed}件`;
+      if (cleanupStatus) cleanupStatus.textContent = msg;
+      showToast(msg);
+      show({ message: msg, result });
+    } catch (error) {
+      if (cleanupStatus) cleanupStatus.textContent = `失効失敗: ${extractErrorMessage(error)}`;
+      reportError("共有リンク全失効エラー", error, cleanupStatus || null);
+    } finally {
+      revokeAllShareBtn.disabled = false;
+      revokeAllShareBtn.textContent = before;
+    }
+  });
+}
+
+if (seedDemoCleanBtn) {
+  seedDemoCleanBtn.addEventListener("click", async () => {
+    const ok = window.confirm(
+      "現在の記録・プロフィール・共有リンク等を削除し、デモ12日分へ置き換えます。実データは戻せません。続けますか？"
+    );
+    if (!ok) return;
+    const before = seedDemoCleanBtn.textContent;
+    seedDemoCleanBtn.disabled = true;
+    seedDemoCleanBtn.textContent = "処理中...";
+    if (cleanupStatus) cleanupStatus.textContent = "実データ削除とデモ再投入を実行中...";
+    try {
+      const data = await seedDemoLogs(12);
+      await refreshOverview().catch(() => {});
+      await refreshInsights().catch(() => {});
+      await loadProfile().catch(() => {});
+      if (!mypagePage.classList.contains("hidden")) {
+        await refreshChartBySelection().catch(() => {});
+      }
+      const msg = `デモ化完了: ${data.logs_count || 0}件を投入しました`;
+      if (cleanupStatus) cleanupStatus.textContent = msg;
+      showToast(msg);
+      show({ message: msg, seeded: data });
+    } catch (error) {
+      if (cleanupStatus) cleanupStatus.textContent = `デモ化失敗: ${extractErrorMessage(error)}`;
+      reportError("デモ化リセットエラー", error, cleanupStatus || null);
+    } finally {
+      seedDemoCleanBtn.disabled = false;
+      seedDemoCleanBtn.textContent = before;
+    }
+  });
+}
+
+if (copyNoteDisclaimerBtn) {
+  copyNoteDisclaimerBtn.addEventListener("click", async () => {
+    const text = String(noteDisclaimerText?.value || "").trim();
+    if (!text) {
+      if (noteDisclaimerStatus) noteDisclaimerStatus.textContent = "コピー対象テキストが空です";
+      return;
+    }
+    const before = copyNoteDisclaimerBtn.textContent;
+    copyNoteDisclaimerBtn.disabled = true;
+    copyNoteDisclaimerBtn.textContent = "コピー中...";
+    try {
+      await copyText(text);
+      if (noteDisclaimerStatus) noteDisclaimerStatus.textContent = "コピーしました";
+      showToast("note注意文をコピーしました");
+    } catch (error) {
+      if (noteDisclaimerStatus) noteDisclaimerStatus.textContent = `コピー失敗: ${extractErrorMessage(error)}`;
+      reportError("note注意文コピーエラー", error, noteDisclaimerStatus || null);
+    } finally {
+      copyNoteDisclaimerBtn.disabled = false;
+      copyNoteDisclaimerBtn.textContent = before;
     }
   });
 }
