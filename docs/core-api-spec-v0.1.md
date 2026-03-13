@@ -216,7 +216,10 @@
 {
   "status": "ok",
   "user_id": "u_123",
-  "active_found": 3,
+  "total_found": 4,
+  "non_revoked_found": 3,
+  "active_found": 1,
+  "expired_found": 2,
   "revoked": 3
 }
 ```

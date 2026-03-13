@@ -1624,22 +1624,30 @@ async function revokeAllShareLinks() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ user_id: userId })
     });
+    const nonRevokedFound = Number(bulk.non_revoked_found ?? bulk.active_found ?? 0);
+    const activeFound = Number(bulk.active_found || 0);
+    const expiredFound = Number(bulk.expired_found || 0);
+    const revoked = Number(bulk.revoked || 0);
     await loadShareLinks().catch(() => {});
     return {
-      total: Number(bulk.active_found || 0),
-      active: Number(bulk.active_found || 0),
-      revoked: Number(bulk.revoked || 0),
-      failed: Math.max(0, Number(bulk.active_found || 0) - Number(bulk.revoked || 0))
+      total: Number(bulk.total_found ?? nonRevokedFound),
+      non_revoked: nonRevokedFound,
+      active: activeFound,
+      expired: expiredFound,
+      revoked,
+      failed: Math.max(0, nonRevokedFound - revoked)
     };
   } catch (error) {
     if (Number(error?.status || 0) !== 404) throw error;
     // Backward compatibility: old server without bulk endpoint.
     const listed = await api(`/api/v1/share-links?user_id=${encodeURIComponent(userId)}`);
     const items = Array.isArray(listed?.items) ? listed.items : [];
-    const active = items.filter((item) => String(item.status || "") === "active");
+    const nonRevokedItems = items.filter((item) => String(item.status || "") !== "revoked");
+    const active = nonRevokedItems.filter((item) => String(item.status || "") === "active");
+    const expired = nonRevokedItems.filter((item) => String(item.status || "") === "expired");
     let revoked = 0;
     let failed = 0;
-    for (const item of active) {
+    for (const item of nonRevokedItems) {
       try {
         await revokeShareLink(item.share_id);
         revoked += 1;
@@ -1648,7 +1656,14 @@ async function revokeAllShareLinks() {
       }
     }
     await loadShareLinks().catch(() => {});
-    return { total: items.length, active: active.length, revoked, failed };
+    return {
+      total: items.length,
+      non_revoked: nonRevokedItems.length,
+      active: active.length,
+      expired: expired.length,
+      revoked,
+      failed
+    };
   }
 }
 
@@ -2478,7 +2493,7 @@ if (revokeAllShareBtn) {
     if (cleanupStatus) cleanupStatus.textContent = "共有リンクを失効しています...";
     try {
       const result = await revokeAllShareLinks();
-      const msg = `失効完了: 対象${result.active}件 / 失効${result.revoked}件 / 失敗${result.failed}件`;
+      const msg = `失効完了: 未失効${result.non_revoked ?? result.active ?? 0}件（active:${result.active ?? 0} / expired:${result.expired ?? 0}） / 失効${result.revoked}件 / 失敗${result.failed}件`;
       if (cleanupStatus) cleanupStatus.textContent = msg;
       showToast(msg);
       show({ message: msg, result });

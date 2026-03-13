@@ -1207,12 +1207,13 @@ const server = createServer(async (req, res) => {
       const userId = String(body.user_id || "").trim();
       if (!userId) return sendJson(res, 400, { error: "missing user_id" });
       const nowIso = new Date().toISOString();
-      const links = storeRepository
-        .listShareLinksByUser(userId)
-        .filter((link) => link.user_id === userId && shareLinkStatus(link) === "active");
+      const links = storeRepository.listShareLinksByUser(userId).filter((link) => link.user_id === userId);
+      const nonRevokedLinks = links.filter((link) => !link.revoked_at);
+      const activeLinks = nonRevokedLinks.filter((link) => shareLinkStatus(link) === "active");
+      const expiredLinks = nonRevokedLinks.filter((link) => shareLinkStatus(link) === "expired");
 
       let revoked = 0;
-      for (const link of links) {
+      for (const link of nonRevokedLinks) {
         const changed = storeRepository.revokeShareLink(link.share_id, nowIso);
         if (!changed) continue;
         revoked += 1;
@@ -1227,7 +1228,10 @@ const server = createServer(async (req, res) => {
       return sendJson(res, 200, {
         status: "ok",
         user_id: userId,
-        active_found: links.length,
+        total_found: links.length,
+        non_revoked_found: nonRevokedLinks.length,
+        active_found: activeLinks.length,
+        expired_found: expiredLinks.length,
         revoked
       });
     }
