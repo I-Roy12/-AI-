@@ -1184,9 +1184,11 @@ const server = createServer(async (req, res) => {
     if (method === "GET" && pathname === "/api/v1/share-links") {
       const userId = requestUrl.searchParams.get("user_id");
       if (!userId) return sendJson(res, 400, { error: "missing user_id" });
+      const includeRevoked = String(requestUrl.searchParams.get("include_revoked") || "").trim().toLowerCase() === "true";
       const items = storeRepository
         .listShareLinksByUser(userId)
         .filter((link) => link.user_id === userId)
+        .filter((link) => (includeRevoked ? true : !link.revoked_at))
         .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
         .map((link) => {
           const accesses = storeRepository.listShareAccessLogsByShareId(link.share_id);

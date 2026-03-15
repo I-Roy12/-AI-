@@ -224,6 +224,10 @@
 }
 ```
 
+## GET /share-links?user_id={id}&include_revoked={true|false}
+共有リンク一覧を返す  
+`include_revoked` を省略した場合、失効済みリンクは非表示（既定: `false`）
+
 ## 3. エラー方針
 - 4xx: 入力不備
 - 5xx: サーバー障害

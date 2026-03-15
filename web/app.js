@@ -1713,13 +1713,21 @@ async function copyText(text) {
 function renderShareLinks(items) {
   if (!shareLinksList) return;
   shareLinksList.innerHTML = "";
-  if (!items.length) {
+  const safeItems = Array.isArray(items) ? items : [];
+  const visibleItems = safeItems.filter((item) => String(item?.status || "") !== "revoked");
+  const hiddenRevokedCount = safeItems.length - visibleItems.length;
+  if (!visibleItems.length) {
     const li = document.createElement("li");
-    li.textContent = "共有リンクはまだありません";
+    li.textContent = hiddenRevokedCount > 0 ? "有効/期限切れの共有リンクはありません（失効済みは非表示）" : "共有リンクはまだありません";
     shareLinksList.append(li);
     return;
   }
-  for (const item of items) {
+  if (hiddenRevokedCount > 0) {
+    const info = document.createElement("li");
+    info.textContent = `失効済みリンク ${hiddenRevokedCount}件は一覧から非表示です`;
+    shareLinksList.append(info);
+  }
+  for (const item of visibleItems) {
     const li = document.createElement("li");
     const meta = document.createElement("span");
     meta.textContent = `状態:${item.status} / 期限:${formatDateTime(item.expires_at)} / 閲覧:${item.access_count}回 / 最終閲覧:${formatDateTime(item.last_access_at)}`;
