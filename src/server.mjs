@@ -54,6 +54,8 @@ const webStylePath = path.join(ROOT, "web/styles.css");
 const webManifestPath = path.join(ROOT, "web/manifest.webmanifest");
 const webSwPath = path.join(ROOT, "web/sw.js");
 const webOfflinePath = path.join(ROOT, "web/offline.html");
+const webPrivacyPath = path.join(ROOT, "web/privacy.html");
+const webTermsPath = path.join(ROOT, "web/terms.html");
 const dataDirPath = DATA_DIR;
 const dataStorePath = DATA_STORE_PATH;
 const uploadDirPath = UPLOAD_DIR;
@@ -1532,6 +1534,16 @@ const server = createServer(async (req, res) => {
     if (method === "GET" && pathname === "/offline.html") {
       const offline = await readFile(webOfflinePath, "utf8");
       return sendText(res, 200, offline, "text/html");
+    }
+
+    if (method === "GET" && pathname === "/privacy") {
+      const html = await readFile(webPrivacyPath, "utf8");
+      return sendText(res, 200, html, "text/html");
+    }
+
+    if (method === "GET" && pathname === "/terms") {
+      const html = await readFile(webTermsPath, "utf8");
+      return sendText(res, 200, html, "text/html");
     }
 
     if (method === "GET" && pathname.startsWith("/uploads/")) {

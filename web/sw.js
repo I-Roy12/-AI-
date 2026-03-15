@@ -1,5 +1,5 @@
-const CACHE_NAME = "health-ai-core-v1";
-const CORE_ASSETS = ["/", "/styles.css", "/app.js", "/offline.html", "/doctor", "/doctor-login"];
+const CACHE_NAME = "health-ai-core-v2";
+const CORE_ASSETS = ["/", "/styles.css", "/app.js", "/offline.html", "/doctor", "/doctor-login", "/privacy", "/terms"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(CORE_ASSETS)));
