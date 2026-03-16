@@ -51,8 +51,9 @@
       <section class="card">
         <h2>今日の記録</h2>
         <p id="editing-status" class="last-sync">新規記録モード</p>
+        <p id="user-scope-status" class="last-sync">この端末の利用者ID: 準備中</p>
         <form id="log-form">
-          <input name="user_id" value="u_123" required type="hidden" />
+          <input name="user_id" value="" required type="hidden" />
           <input name="recorded_at" value="" required type="hidden" />
           <label>症状（カンマ区切り）<input name="symptoms" value="" required /></label>
           <div class="chips">
@@ -216,6 +217,7 @@
       <div id="mypage-page" class="hidden">
       <section class="card">
         <h2>マイプロフィール</h2>
+        <p class="sub">この端末では、記録は自動で別の利用者IDに分かれて保存されます。</p>
         <form id="profile-form">
           <label>表示名<input name="display_name" placeholder="例: たろう" /></label>
           <label>身長(cm)<input name="height_cm" type="number" min="50" max="260" step="0.1" /></label>

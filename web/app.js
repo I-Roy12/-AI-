@@ -83,9 +83,11 @@ const consentCheck = document.querySelector("#consent-check");
 const consentAgreeBtn = document.querySelector("#consent-agree-btn");
 const consentReloadBtn = document.querySelector("#consent-reload-btn");
 const consentStatus = document.querySelector("#consent-status");
+const userScopeStatus = document.querySelector("#user-scope-status");
 
 const speechSynthesisSupported = "speechSynthesis" in window;
 const settingsKey = "health_journal_ui_settings_v1";
+const userIdStorageKey = "health_journal_user_id_v1";
 const maxImageBytes = 3 * 1024 * 1024;
 const supportedImageMimeTypes = new Set(["image/jpeg", "image/jpg", "image/png", "image/webp", "image/gif"]);
 let recognition = null;
@@ -304,6 +306,44 @@ function isNotFoundError(error) {
 
 function getUserId() {
   return form.querySelector("[name=user_id]").value.trim();
+}
+
+function createLocalUserId() {
+  if (globalThis.crypto?.randomUUID) {
+    return `u_${crypto.randomUUID().replace(/-/g, "").slice(0, 12)}`;
+  }
+  const randomPart = Math.random().toString(36).slice(2, 10);
+  return `u_${Date.now().toString(36)}${randomPart}`;
+}
+
+function setActiveUserId(userId) {
+  const normalized = String(userId || "").trim();
+  const hidden = form.querySelector("[name=user_id]");
+  if (hidden) hidden.value = normalized;
+  if (userScopeStatus) {
+    userScopeStatus.textContent = normalized
+      ? `この端末の利用者ID: ${normalized}`
+      : "この端末の利用者ID: 未設定";
+  }
+}
+
+function ensureLocalUserId() {
+  let userId = "";
+  try {
+    userId = String(localStorage.getItem(userIdStorageKey) || "").trim();
+  } catch (_) {
+    userId = "";
+  }
+  if (!userId) {
+    userId = createLocalUserId();
+    try {
+      localStorage.setItem(userIdStorageKey, userId);
+    } catch (_) {
+      // ignore
+    }
+  }
+  setActiveUserId(userId);
+  return userId;
 }
 
 function getRecordedDate() {
@@ -1891,7 +1931,7 @@ form.addEventListener("submit", async (event) => {
       .map((s) => s.trim())
       .filter(Boolean);
     const payload = {
-      user_id: String(formData.get("user_id") || "u_123").trim(),
+      user_id: String(formData.get("user_id") || getUserId()).trim(),
       recorded_at: normalizeRecordedAt(formData.get("recorded_at")),
       symptoms: symptoms.length ? symptoms : ["未入力"],
       symptom_score: normalizeScore(formData.get("symptom_score"), 0),
@@ -2090,6 +2130,7 @@ if (reviewEditBtn) {
 }
 
 initDatetimeDefault();
+ensureLocalUserId();
 loadSettings();
 updateVoiceRouteText();
 syncConsentUiLock();
