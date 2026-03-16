@@ -844,6 +844,15 @@ input[type="range"]::-moz-range-thumb {
   flex-wrap: wrap;
 }
 
+.share-confirm-box {
+  margin-top: 0;
+  background: #fff8ee;
+}
+
+.share-confirm-box p {
+  margin: 0 0 8px;
+}
+
 @media (max-width: 768px) {
   .container {
     padding: 16px 12px calc(20px + env(safe-area-inset-bottom));

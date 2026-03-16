@@ -83,6 +83,11 @@ const consentCheck = document.querySelector("#consent-check");
 const consentAgreeBtn = document.querySelector("#consent-agree-btn");
 const consentReloadBtn = document.querySelector("#consent-reload-btn");
 const consentStatus = document.querySelector("#consent-status");
+const shareConfirmModal = document.querySelector("#share-confirm-modal");
+const shareConfirmCheck = document.querySelector("#share-confirm-check");
+const shareConfirmSubmitBtn = document.querySelector("#share-confirm-submit-btn");
+const shareConfirmCancelBtn = document.querySelector("#share-confirm-cancel-btn");
+const shareConfirmStatus = document.querySelector("#share-confirm-status");
 const userScopeStatus = document.querySelector("#user-scope-status");
 
 const speechSynthesisSupported = "speechSynthesis" in window;
@@ -363,6 +368,15 @@ function setSafeText(el, text) {
 function setConsentModalVisible(visible) {
   if (!consentModal) return;
   consentModal.classList.toggle("hidden", !visible);
+}
+
+function setShareConfirmVisible(visible) {
+  if (!shareConfirmModal) return;
+  shareConfirmModal.classList.toggle("hidden", !visible);
+  if (!visible) {
+    if (shareConfirmCheck) shareConfirmCheck.checked = false;
+    if (shareConfirmStatus) shareConfirmStatus.textContent = "未確認";
+  }
 }
 
 function syncConsentUiLock() {
@@ -1649,6 +1663,54 @@ async function createDoctorShareLink() {
   });
 }
 
+async function runCreateShareLinkFlow() {
+  if (!shareConfirmCheck?.checked) {
+    if (shareConfirmStatus) shareConfirmStatus.textContent = "共有前に確認チェックが必要です";
+    showToast("共有範囲の確認が必要です");
+    return;
+  }
+  createShareLinkBtn.disabled = true;
+  const before = createShareLinkBtn.textContent;
+  createShareLinkBtn.textContent = "発行中...";
+  if (shareConfirmSubmitBtn) {
+    shareConfirmSubmitBtn.disabled = true;
+    shareConfirmSubmitBtn.textContent = "発行中...";
+  }
+  try {
+    const data = await createDoctorShareLink();
+    const url = absoluteUrl(data.doctor_url);
+    let copied = false;
+    try {
+      copied = await copyText(url);
+    } catch (_) {
+      copied = false;
+    }
+    if (shareStatus) {
+      shareStatus.textContent = copied
+        ? `共有リンク発行: ${formatDateTime(data.expires_at)} まで有効（コピー済み）`
+        : `共有リンク発行: ${formatDateTime(data.expires_at)} まで有効（コピーは手動）`;
+    }
+    show({
+      message: copied ? "共有リンクを発行してコピーしました" : "共有リンクを発行しました。手動でコピーしてください。",
+      doctor_url: url,
+      expires_at: data.expires_at
+    });
+    setShareConfirmVisible(false);
+    showToast(copied ? "共有リンクを発行してコピーしました" : "共有リンクを発行しました（手動コピー）");
+    await loadShareLinks();
+  } catch (error) {
+    if (shareStatus) shareStatus.textContent = `失敗: ${extractErrorMessage(error)}`;
+    reportError("共有リンク発行エラー", error, shareConfirmStatus || shareStatus);
+  } finally {
+    createShareLinkBtn.disabled = false;
+    createShareLinkBtn.textContent = before;
+    if (shareConfirmSubmitBtn) {
+      shareConfirmSubmitBtn.disabled = false;
+      shareConfirmSubmitBtn.textContent = "この内容で共有リンクを発行";
+    }
+  }
+}
+
 async function revokeShareLink(shareId) {
   const userId = getUserId();
   return api(`/api/v1/share-links/${encodeURIComponent(shareId)}?user_id=${encodeURIComponent(userId)}`, {
@@ -2346,6 +2408,19 @@ voiceMode.addEventListener("change", () => {
 });
 autoSpeak.addEventListener("change", saveSettings);
 
+if (shareConfirmCancelBtn) {
+  shareConfirmCancelBtn.addEventListener("click", () => {
+    setShareConfirmVisible(false);
+    showToast("共有リンク発行をキャンセルしました");
+  });
+}
+
+if (shareConfirmSubmitBtn) {
+  shareConfirmSubmitBtn.addEventListener("click", async () => {
+    await runCreateShareLinkFlow();
+  });
+}
+
 refreshBtn.addEventListener("click", async () => {
   refreshBtn.disabled = true;
   const before = refreshBtn.textContent;
@@ -2495,40 +2570,9 @@ if (exportDoctorSummaryBtn) {
 
 if (createShareLinkBtn) {
   createShareLinkBtn.addEventListener("click", async () => {
-    if (!(await ensureConsentForWrite("共有リンク発行"))) {
-      return;
-    }
-    createShareLinkBtn.disabled = true;
-    const before = createShareLinkBtn.textContent;
-    createShareLinkBtn.textContent = "発行中...";
-    try {
-      const data = await createDoctorShareLink();
-      const url = absoluteUrl(data.doctor_url);
-      let copied = false;
-      try {
-        copied = await copyText(url);
-      } catch (_) {
-        copied = false;
-      }
-      if (shareStatus) {
-        shareStatus.textContent = copied
-          ? `共有リンク発行: ${formatDateTime(data.expires_at)} まで有効（コピー済み）`
-          : `共有リンク発行: ${formatDateTime(data.expires_at)} まで有効（コピーは手動）`;
-      }
-      show({
-        message: copied ? "共有リンクを発行してコピーしました" : "共有リンクを発行しました。手動でコピーしてください。",
-        doctor_url: url,
-        expires_at: data.expires_at
-      });
-      showToast(copied ? "共有リンクを発行してコピーしました" : "共有リンクを発行しました（手動コピー）");
-      await loadShareLinks();
-    } catch (error) {
-      if (shareStatus) shareStatus.textContent = `失敗: ${extractErrorMessage(error)}`;
-      reportError("共有リンク発行エラー", error, shareStatus);
-    } finally {
-      createShareLinkBtn.disabled = false;
-      createShareLinkBtn.textContent = before;
-    }
+    if (!(await ensureConsentForWrite("共有リンク発行"))) return;
+    setShareConfirmVisible(true);
+    if (shareConfirmStatus) shareConfirmStatus.textContent = "共有範囲を確認してください";
   });
 }
 

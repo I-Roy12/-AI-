@@ -294,6 +294,7 @@
         </div>
         <hr />
         <p class="sub">医師共有用のサマリーとリンクを発行できます。</p>
+        <p class="sub">共有前に、共有範囲と注意事項の確認画面が開きます。</p>
         <div class="review-row">
           <button id="export-doctor-summary-btn">医師向けサマリー保存</button>
           <button id="create-share-link-btn">共有リンク発行(24h)</button>
@@ -349,6 +350,33 @@
           <button id="consent-reload-btn" type="button">状態を再確認</button>
         </div>
         <p id="consent-status" class="last-sync">未同意です。記録保存には同意が必要です。</p>
+      </div>
+    </div>
+
+    <div id="share-confirm-modal" class="consent-modal hidden" role="dialog" aria-modal="true" aria-labelledby="share-confirm-title">
+      <div class="consent-card">
+        <h2 id="share-confirm-title">共有前の確認</h2>
+        <p>
+          これから医師共有リンクを発行します。共有リンクを知っている人は、期限内に医師ビューを閲覧できる可能性があります。
+          デモ公開中は、実名や連絡先などの個人情報を入力しない運用を続けてください。
+        </p>
+        <div class="card share-confirm-box">
+          <p><strong>今回共有される内容</strong></p>
+          <ul class="legal-list">
+            <li>共有期間: 24時間</li>
+            <li>共有範囲: 直近14日分の体調記録とAI要約</li>
+            <li>含まれる可能性があるもの: メモ、画像、プロフィール、医師コメント</li>
+          </ul>
+        </div>
+        <label class="consent-check">
+          <input id="share-confirm-check" type="checkbox" />
+          共有範囲と注意事項を確認しました
+        </label>
+        <div class="review-row">
+          <button id="share-confirm-submit-btn" type="button">この内容で共有リンクを発行</button>
+          <button id="share-confirm-cancel-btn" type="button">キャンセル</button>
+        </div>
+        <p id="share-confirm-status" class="last-sync">未確認</p>
       </div>
     </div>
 
