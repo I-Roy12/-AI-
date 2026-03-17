@@ -23,6 +23,14 @@
           <strong>重要:</strong> このアプリのAI出力は診断確定ではなく、受診判断を補助する参考情報です。強い痛み・呼吸苦・意識障害など緊急症状がある場合は、すぐ医療機関へ相談してください。
         </p>
       </section>
+      <section class="card guide-card">
+        <p><strong>公開デモで入力しないでほしい情報</strong></p>
+        <ul class="legal-list">
+          <li>実名、住所、電話番号、メールアドレス</li>
+          <li>保険証番号、診察券番号、勤務先など個人特定につながる情報</li>
+          <li>家族や第三者の個人情報</li>
+        </ul>
+      </section>
       <section class="card tab-card">
         <div class="review-row tabs">
           <button id="tab-record" class="tab-btn active">記録</button>
@@ -368,6 +376,10 @@
             <li>含まれる可能性があるもの: メモ、画像、プロフィール、医師コメント</li>
           </ul>
         </div>
+        <label>
+          誰向けに発行するか（任意メモ）
+          <input id="share-target-label" type="text" maxlength="80" placeholder="例: 商工会デモ / ○○先生 / 自分用確認" />
+        </label>
         <label class="consent-check">
           <input id="share-confirm-check" type="checkbox" />
           共有範囲と注意事項を確認しました

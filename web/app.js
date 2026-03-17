@@ -85,6 +85,7 @@ const consentReloadBtn = document.querySelector("#consent-reload-btn");
 const consentStatus = document.querySelector("#consent-status");
 const shareConfirmModal = document.querySelector("#share-confirm-modal");
 const shareConfirmCheck = document.querySelector("#share-confirm-check");
+const shareTargetLabelInput = document.querySelector("#share-target-label");
 const shareConfirmSubmitBtn = document.querySelector("#share-confirm-submit-btn");
 const shareConfirmCancelBtn = document.querySelector("#share-confirm-cancel-btn");
 const shareConfirmStatus = document.querySelector("#share-confirm-status");
@@ -375,6 +376,7 @@ function setShareConfirmVisible(visible) {
   shareConfirmModal.classList.toggle("hidden", !visible);
   if (!visible) {
     if (shareConfirmCheck) shareConfirmCheck.checked = false;
+    if (shareTargetLabelInput) shareTargetLabelInput.value = "";
     if (shareConfirmStatus) shareConfirmStatus.textContent = "未確認";
   }
 }
@@ -1652,13 +1654,15 @@ async function exportDoctorSummary() {
 
 async function createDoctorShareLink() {
   const userId = getUserId();
+  const shareTargetLabel = String(shareTargetLabelInput?.value || "").trim();
   return api("/api/v1/share-links", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       user_id: userId,
       expires_hours: 24,
-      window_days: 14
+      window_days: 14,
+      share_target_label: shareTargetLabel
     })
   });
 }
@@ -1832,7 +1836,8 @@ function renderShareLinks(items) {
   for (const item of visibleItems) {
     const li = document.createElement("li");
     const meta = document.createElement("span");
-    meta.textContent = `状態:${item.status} / 期限:${formatDateTime(item.expires_at)} / 閲覧:${item.access_count}回 / 最終閲覧:${formatDateTime(item.last_access_at)}`;
+    const targetLabel = item.share_target_label ? ` / 宛先メモ:${item.share_target_label}` : "";
+    meta.textContent = `状態:${item.status}${targetLabel} / 期限:${formatDateTime(item.expires_at)} / 閲覧:${item.access_count}回 / 最終閲覧:${formatDateTime(item.last_access_at)}`;
     li.append(meta);
 
     const row = document.createElement("div");

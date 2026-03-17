@@ -98,6 +98,10 @@ h1 {
   font-size: 14px;
 }
 
+.guide-card .legal-list {
+  margin-top: 8px;
+}
+
 .flow-card {
   background: #fff7ec;
   border-color: #f0d0a5;
@@ -248,6 +252,31 @@ textarea {
   display: grid;
   gap: 10px;
   grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.doctor-quick-strip {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  background: #fffdf9;
+}
+
+.doctor-quick-item {
+  border: 1px solid #eadcca;
+  border-radius: 10px;
+  padding: 10px;
+  background: #fff8ee;
+}
+
+.doctor-quick-item .sub {
+  margin: 0 0 6px;
+}
+
+.doctor-quick-value {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: #6a4420;
 }
 
 button {
@@ -897,6 +926,10 @@ input[type="range"]::-moz-range-thumb {
   }
 
   .doctor-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .doctor-quick-strip {
     grid-template-columns: 1fr;
   }
 

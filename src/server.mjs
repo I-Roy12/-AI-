@@ -698,6 +698,7 @@ function toDoctorShareLinkItem(link) {
     revoked_at: link.revoked_at,
     doctor_url: `/doctor?token=${encodeURIComponent(link.token)}`,
     handoff_to: link.handoff_to || "",
+    share_target_label: link.share_target_label || "",
     handoff_note: link.handoff_note || "",
     issued_by_doctor_id: link.issued_by_doctor_id || "",
     issued_by_doctor_name: link.issued_by_doctor_name || "",
@@ -1151,6 +1152,7 @@ const server = createServer(async (req, res) => {
       if (!requireConsentForWrite(userId, res)) return;
       const expiresHours = Math.max(1, Math.min(72, Number(body.expires_hours || 24)));
       const windowDays = Math.max(7, Math.min(90, Number(body.window_days || 14)));
+      const shareTargetLabel = String(body.share_target_label || "").trim().slice(0, 80);
       const now = new Date();
       const expiresAt = new Date(now.getTime() + expiresHours * 60 * 60 * 1000).toISOString();
       const link = {
@@ -1158,6 +1160,7 @@ const server = createServer(async (req, res) => {
         token: makeShareToken(),
         kind: "patient_share",
         user_id: userId,
+        share_target_label: shareTargetLabel,
         window_days: windowDays,
         created_at: now.toISOString(),
         expires_at: expiresAt,
@@ -1170,7 +1173,8 @@ const server = createServer(async (req, res) => {
         target: link.share_id,
         metadata: {
           expires_at: link.expires_at,
-          window_days: link.window_days
+          window_days: link.window_days,
+          share_target_label: link.share_target_label || ""
         }
       });
       await storeRepository.persist();
