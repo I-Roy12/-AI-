@@ -2,6 +2,7 @@ const tokenInput = document.querySelector("#doctor-token");
 const loadBtn = document.querySelector("#doctor-load-btn");
 const statusView = document.querySelector("#doctor-status");
 const doctorShareContext = document.querySelector("#doctor-share-context");
+const doctorDemoShareKind = document.querySelector("#doctor-demo-share-kind");
 const doctorMe = document.querySelector("#doctor-me");
 const doctorLogoutBtn = document.querySelector("#doctor-logout-btn");
 const doctorQueueRefreshBtn = document.querySelector("#doctor-queue-refresh-btn");
@@ -121,6 +122,11 @@ function renderList(el, items, mapper) {
 function setText(el, text) {
   if (!el) return;
   el.textContent = text;
+}
+
+function setDoctorShareMeta(text) {
+  setText(doctorShareContext, text);
+  setText(doctorDemoShareKind, text);
 }
 
 async function copyText(text) {
@@ -417,7 +423,7 @@ function applyData(data) {
   const fromLabel = share.issued_by_doctor_name ? ` / 発行医: ${share.issued_by_doctor_name}` : "";
   const toLabel = share.handoff_to ? ` / 宛先: ${share.handoff_to}` : "";
   const noteLabel = share.handoff_note ? ` / メモ: ${share.handoff_note}` : "";
-  setText(doctorShareContext, `共有種別: ${kindLabel}${fromLabel}${toLabel}${noteLabel}`);
+  setDoctorShareMeta(`共有種別: ${kindLabel}${fromLabel}${toLabel}${noteLabel}`);
 
   setText(
     triageView,
@@ -492,7 +498,7 @@ async function loadDoctorView(token) {
     setText(statusView, `読み込み完了 / 有効期限: ${exp}`);
   } catch (error) {
     setText(statusView, `読み込み失敗: ${getDisplayError(error)}`);
-    setText(doctorShareContext, "共有種別: -");
+    setDoctorShareMeta("共有種別: -");
   }
 }
 

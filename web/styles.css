@@ -214,6 +214,36 @@ textarea {
   margin: 0 0 8px;
 }
 
+.doctor-demo-banner {
+  background: linear-gradient(135deg, #fff4e4, #fffaf2);
+  border-color: #efc78d;
+}
+
+.doctor-demo-banner p {
+  margin: 0;
+  color: #7f5b34;
+  line-height: 1.7;
+}
+
+.doctor-banner-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.doctor-banner-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 4px 10px;
+  background: #e98b2a;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+}
+
 .doctor-grid {
   display: grid;
   gap: 10px;
