@@ -1296,7 +1296,9 @@ const server = createServer(async (req, res) => {
         share: {
           share_id: link.share_id,
           kind: link.kind || "patient_share",
+          created_at: link.created_at,
           expires_at: link.expires_at,
+          share_target_label: link.share_target_label || "",
           handoff_to: link.handoff_to || "",
           handoff_note: link.handoff_note || "",
           issued_by_doctor_name: link.issued_by_doctor_name || "",

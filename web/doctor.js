@@ -3,6 +3,7 @@ const loadBtn = document.querySelector("#doctor-load-btn");
 const statusView = document.querySelector("#doctor-status");
 const doctorShareContext = document.querySelector("#doctor-share-context");
 const doctorDemoShareKind = document.querySelector("#doctor-demo-share-kind");
+const doctorDemoShareMeta = document.querySelector("#doctor-demo-share-meta");
 const doctorQuickPatient = document.querySelector("#doctor-quick-patient");
 const doctorQuickRisk = document.querySelector("#doctor-quick-risk");
 const doctorQuickLatest = document.querySelector("#doctor-quick-latest");
@@ -130,6 +131,10 @@ function setText(el, text) {
 function setDoctorShareMeta(text) {
   setText(doctorShareContext, text);
   setText(doctorDemoShareKind, text);
+}
+
+function setDoctorShareExtraMeta(text) {
+  setText(doctorDemoShareMeta, text);
 }
 
 async function copyText(text) {
@@ -427,6 +432,9 @@ function applyData(data) {
   const toLabel = share.handoff_to ? ` / 宛先: ${share.handoff_to}` : "";
   const noteLabel = share.handoff_note ? ` / メモ: ${share.handoff_note}` : "";
   setDoctorShareMeta(`共有種別: ${kindLabel}${fromLabel}${toLabel}${noteLabel}`);
+  setDoctorShareExtraMeta(
+    `発行日時: ${formatDateTime(share.created_at)} / 宛先メモ: ${share.share_target_label || "-"}`
+  );
   setText(doctorQuickPatient, `${patient.display_name || patient.user_id || "-"} / ${patient.sex || "-"} / ${patient.age ?? "-"}歳`);
   setText(doctorQuickRisk, `${triage.risk_level || "-"} / ${triage.trend || "-"} / ${triage.recommendation || "-"}`);
   setText(
@@ -508,6 +516,7 @@ async function loadDoctorView(token) {
   } catch (error) {
     setText(statusView, `読み込み失敗: ${getDisplayError(error)}`);
     setDoctorShareMeta("共有種別: -");
+    setDoctorShareExtraMeta("発行日時: - / 宛先メモ: -");
     setText(doctorQuickPatient, "-");
     setText(doctorQuickRisk, "-");
     setText(doctorQuickLatest, "-");
