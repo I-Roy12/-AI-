@@ -378,6 +378,15 @@ function drawDoctorTrendChart(items) {
       else ctx.lineTo(x, y);
     });
     ctx.stroke();
+
+    ctx.fillStyle = color;
+    items.forEach((item, i) => {
+      const x = xFor(i);
+      const y = yFor(item[key]);
+      ctx.beginPath();
+      ctx.arc(x, y, 4, 0, Math.PI * 2);
+      ctx.fill();
+    });
   }
 
   drawSeries("symptom_score", "#d36b2c");
@@ -414,7 +423,9 @@ function drawDoctorTrendChart(items) {
 
   setText(
     doctorChartStatus,
-    `表示中: ${items.length}件（${items[0].date || "-"} 〜 ${items[items.length - 1].date || "-"}）`
+    items.length === 1
+      ? `表示中: 1件（${items[0].date || "-"}、点で表示）`
+      : `表示中: ${items.length}件（${items[0].date || "-"} 〜 ${items[items.length - 1].date || "-"}）`
   );
 }
 

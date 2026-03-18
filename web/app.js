@@ -751,6 +751,15 @@ function drawTrendChart(items) {
       else ctx.lineTo(x, y);
     });
     ctx.stroke();
+
+    ctx.fillStyle = color;
+    items.forEach((item, i) => {
+      const x = xFor(i);
+      const y = yFor(item[key]);
+      ctx.beginPath();
+      ctx.arc(x, y, 4, 0, Math.PI * 2);
+      ctx.fill();
+    });
   }
 
   drawSeries("symptom_score", "#d36b2c");
@@ -1141,7 +1150,9 @@ async function loadTrendChartData(limit = 14) {
   }
   const ok = drawTrendChart(items);
   chartStatus.textContent = items.length
-    ? `表示中: ${items.length}件（${recordedAtDateKey(items[0].recorded_at)} ～ ${recordedAtDateKey(items[items.length - 1].recorded_at)}）`
+    ? items.length === 1
+      ? `表示中: 1件（${recordedAtDateKey(items[0].recorded_at)}、点で表示）`
+      : `表示中: ${items.length}件（${recordedAtDateKey(items[0].recorded_at)} ～ ${recordedAtDateKey(items[items.length - 1].recorded_at)}）`
     : "グラフが空です: 記録データが未保存、または期間外です。";
   if (!ok && !mypagePage.classList.contains("hidden")) {
     setTimeout(() => {
@@ -1187,7 +1198,9 @@ async function loadTrendChartRange(from, to) {
   }
   const ok = drawTrendChart(items);
   chartStatus.textContent = items.length
-    ? `期間表示: ${items.length}件（${from} ～ ${to}）`
+    ? items.length === 1
+      ? `期間表示: 1件（${from} ～ ${to}、点で表示）`
+      : `期間表示: ${items.length}件（${from} ～ ${to}）`
     : `グラフが空です: ${from} ～ ${to} の記録がありません。`;
   if (!ok && !mypagePage.classList.contains("hidden")) {
     setTimeout(() => {
