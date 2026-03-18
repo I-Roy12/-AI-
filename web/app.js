@@ -740,6 +740,13 @@ function drawTrendChart(items) {
   const xFor = (idx) => pad.left + (items.length === 1 ? w / 2 : (idx / (items.length - 1)) * w);
   const yFor = (value) => pad.top + h - (Math.max(0, Math.min(10, Number(value) || 0)) / 10) * h;
 
+  ctx.strokeStyle = "#decdb9";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(pad.left, pad.top + h);
+  ctx.lineTo(pad.left + w, pad.top + h);
+  ctx.stroke();
+
   function drawSeries(key, color) {
     ctx.strokeStyle = color;
     ctx.lineWidth = 2;
@@ -753,25 +760,21 @@ function drawTrendChart(items) {
     ctx.stroke();
 
     ctx.fillStyle = color;
+    ctx.strokeStyle = "#fffdf9";
+    ctx.lineWidth = 1.5;
     items.forEach((item, i) => {
       const x = xFor(i);
       const y = yFor(item[key]);
       ctx.beginPath();
       ctx.arc(x, y, 4, 0, Math.PI * 2);
       ctx.fill();
+      ctx.stroke();
     });
   }
 
   drawSeries("symptom_score", "#d36b2c");
   drawSeries("mood_score", "#4f82cf");
   drawSeries("sleep_quality_score", "#47a17a");
-
-  ctx.strokeStyle = "#decdb9";
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(pad.left, pad.top + h);
-  ctx.lineTo(pad.left + w, pad.top + h);
-  ctx.stroke();
 
   const dayMs = 24 * 60 * 60 * 1000;
   const ticks = [];
