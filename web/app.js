@@ -117,6 +117,39 @@ let consentStateChecked = false;
 let consentVersionRequired = "consent_v1";
 let consentFetchSeq = 0;
 
+const sliderMeta = {
+  symptom_score: {
+    goodHigh: false,
+    states: [
+      { max: 2, emoji: "😊", label: "ラク" },
+      { max: 4, emoji: "🙂", label: "やや平気" },
+      { max: 6, emoji: "😐", label: "ふつう" },
+      { max: 8, emoji: "😣", label: "つらい" },
+      { max: 10, emoji: "🤒", label: "かなりつらい" }
+    ]
+  },
+  mood_score: {
+    goodHigh: true,
+    states: [
+      { max: 2, emoji: "😣", label: "かなり低い" },
+      { max: 4, emoji: "😕", label: "低め" },
+      { max: 6, emoji: "🙂", label: "ふつう" },
+      { max: 8, emoji: "😊", label: "良い" },
+      { max: 10, emoji: "😄", label: "かなり良い" }
+    ]
+  },
+  sleep_quality_score: {
+    goodHigh: true,
+    states: [
+      { max: 2, emoji: "🥱", label: "眠れてない" },
+      { max: 4, emoji: "😪", label: "浅い" },
+      { max: 6, emoji: "🙂", label: "ふつう" },
+      { max: 8, emoji: "😌", label: "良い" },
+      { max: 10, emoji: "😴", label: "ぐっすり" }
+    ]
+  }
+};
+
 function getSpeechRecognitionCtor() {
   return (
     window.SpeechRecognition ||
@@ -963,7 +996,25 @@ function syncMeter(inputName) {
   const input = form.querySelector(`[name=${inputName}]`);
   const meter = document.querySelector(`[data-for=${inputName}]`);
   if (!input || !meter) return;
-  meter.textContent = String(input.value);
+  const value = Number(input.value || 0);
+  const meta = sliderMeta[inputName];
+  if (!meta) {
+    meter.textContent = String(input.value);
+    return;
+  }
+  const state = meta.states.find((item) => value <= item.max) || meta.states[meta.states.length - 1];
+  const visualRatio = meta.goodHigh ? value / 10 : 1 - value / 10;
+  const hue = Math.round(visualRatio * 120);
+  const dark = `hsl(${hue} 65% 40%)`;
+  const soft = `hsl(${hue} 85% 92%)`;
+  const trackLow = meta.goodHigh ? "#f58b8b" : "#78c88b";
+  const trackHigh = meta.goodHigh ? "#78c88b" : "#f58b8b";
+  input.style.setProperty("--track-bg", `linear-gradient(90deg, ${trackLow} 0%, #f1d26b 50%, ${trackHigh} 100%)`);
+  input.style.setProperty("--thumb-border", dark);
+  meter.style.setProperty("--meter-bg", soft);
+  meter.style.setProperty("--meter-border", dark);
+  meter.style.setProperty("--meter-ink", dark);
+  meter.textContent = `${state.emoji} ${value} ${state.label}`;
 }
 
 for (const meter of meters) {
