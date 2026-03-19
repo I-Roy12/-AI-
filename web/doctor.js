@@ -373,7 +373,28 @@ function drawDoctorTrendChart(items) {
     ctx.fillText(String(y), pad.left - 6, yy);
   }
 
-  function drawSeries(key, color) {
+  function drawPointMarker(x, y, shape, color) {
+    ctx.save();
+    ctx.fillStyle = color;
+    ctx.strokeStyle = "#fffdf9";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    if (shape === "square") {
+      ctx.rect(x - 4, y - 4, 8, 8);
+    } else if (shape === "triangle") {
+      ctx.moveTo(x, y - 5);
+      ctx.lineTo(x + 5, y + 4);
+      ctx.lineTo(x - 5, y + 4);
+      ctx.closePath();
+    } else {
+      ctx.arc(x, y, 4, 0, Math.PI * 2);
+    }
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawSeries(key, color, shape) {
     ctx.strokeStyle = color;
     ctx.lineWidth = 2;
     ctx.beginPath();
@@ -384,23 +405,16 @@ function drawDoctorTrendChart(items) {
       else ctx.lineTo(x, y);
     });
     ctx.stroke();
-
-    ctx.fillStyle = color;
-    ctx.strokeStyle = "#fffdf9";
-    ctx.lineWidth = 1.5;
     items.forEach((item, i) => {
       const x = xFor(i);
       const y = yFor(item[key]);
-      ctx.beginPath();
-      ctx.arc(x, y, 4, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.stroke();
+      drawPointMarker(x, y, shape, color);
     });
   }
 
-  drawSeries("symptom_score", "#d36b2c");
-  drawSeries("mood_score", "#4f82cf");
-  drawSeries("sleep_quality_score", "#47a17a");
+  drawSeries("symptom_score", "#d36b2c", "circle");
+  drawSeries("mood_score", "#4f82cf", "square");
+  drawSeries("sleep_quality_score", "#47a17a", "triangle");
 
   const tickIndices = [0];
   for (let i = 1; i < items.length - 1; i += 1) {

@@ -747,7 +747,28 @@ function drawTrendChart(items) {
   ctx.lineTo(pad.left + w, pad.top + h);
   ctx.stroke();
 
-  function drawSeries(key, color) {
+  function drawPointMarker(x, y, shape, color) {
+    ctx.save();
+    ctx.fillStyle = color;
+    ctx.strokeStyle = "#fffdf9";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    if (shape === "square") {
+      ctx.rect(x - 4, y - 4, 8, 8);
+    } else if (shape === "triangle") {
+      ctx.moveTo(x, y - 5);
+      ctx.lineTo(x + 5, y + 4);
+      ctx.lineTo(x - 5, y + 4);
+      ctx.closePath();
+    } else {
+      ctx.arc(x, y, 4, 0, Math.PI * 2);
+    }
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawSeries(key, color, shape) {
     ctx.strokeStyle = color;
     ctx.lineWidth = 2;
     ctx.beginPath();
@@ -758,23 +779,16 @@ function drawTrendChart(items) {
       else ctx.lineTo(x, y);
     });
     ctx.stroke();
-
-    ctx.fillStyle = color;
-    ctx.strokeStyle = "#fffdf9";
-    ctx.lineWidth = 1.5;
     items.forEach((item, i) => {
       const x = xFor(i);
       const y = yFor(item[key]);
-      ctx.beginPath();
-      ctx.arc(x, y, 4, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.stroke();
+      drawPointMarker(x, y, shape, color);
     });
   }
 
-  drawSeries("symptom_score", "#d36b2c");
-  drawSeries("mood_score", "#4f82cf");
-  drawSeries("sleep_quality_score", "#47a17a");
+  drawSeries("symptom_score", "#d36b2c", "circle");
+  drawSeries("mood_score", "#4f82cf", "square");
+  drawSeries("sleep_quality_score", "#47a17a", "triangle");
 
   const dayMs = 24 * 60 * 60 * 1000;
   const ticks = [];
@@ -2045,23 +2059,56 @@ form.addEventListener("submit", async (event) => {
       setImageUiState({ dataUrl: "", name: "", status: "未添付" });
       if (logImageInput) logImageInput.value = "";
     }
-    const insights = await refreshInsights();
-    await loadRecent();
-    if (!mypagePage.classList.contains("hidden")) {
-      await loadTrendChartData(Number(chartRange.value || 14));
+    let insights = {};
+    const postSaveWarnings = [];
+    try {
+      insights = await refreshInsights();
+    } catch (error) {
+      postSaveWarnings.push(`AI要約更新: ${extractErrorMessage(error)}`);
     }
-    await refreshCalendar();
-    await loadStats();
-    await refreshTodayStatus();
+    try {
+      await loadRecent();
+    } catch (error) {
+      postSaveWarnings.push(`最近の記録更新: ${extractErrorMessage(error)}`);
+    }
+    if (!mypagePage.classList.contains("hidden")) {
+      try {
+        await loadTrendChartData(Number(chartRange.value || 14));
+      } catch (error) {
+        postSaveWarnings.push(`グラフ更新: ${extractErrorMessage(error)}`);
+      }
+    }
+    try {
+      await refreshCalendar();
+    } catch (error) {
+      postSaveWarnings.push(`カレンダー更新: ${extractErrorMessage(error)}`);
+    }
+    try {
+      await loadStats();
+    } catch (error) {
+      postSaveWarnings.push(`統計更新: ${extractErrorMessage(error)}`);
+    }
+    try {
+      await refreshTodayStatus();
+    } catch (error) {
+      postSaveWarnings.push(`今日の状態更新: ${extractErrorMessage(error)}`);
+    }
     if (reviewDate.value) {
-      const refreshed = await loadByDate(reviewDate.value);
-      if (refreshed?.item) {
-        reviewView.textContent = `${refreshed.item.recorded_at} / 症状: ${(refreshed.item.symptoms || []).join("・")} / つらさ${refreshed.item.symptom_score} / 気分${refreshed.item.mood_score} / メモ: ${refreshed.item.note || "-"}`;
-        reviewedLogItem = refreshed.item;
+      try {
+        const refreshed = await loadByDate(reviewDate.value);
+        if (refreshed?.item) {
+          reviewView.textContent = `${refreshed.item.recorded_at} / 症状: ${(refreshed.item.symptoms || []).join("・")} / つらさ${refreshed.item.symptom_score} / 気分${refreshed.item.mood_score} / メモ: ${refreshed.item.note || "-"}`;
+          reviewedLogItem = refreshed.item;
+        }
+      } catch (error) {
+        postSaveWarnings.push(`日付ふりかえり更新: ${extractErrorMessage(error)}`);
       }
     }
     stampSync();
     show({ saved: data, ...insights });
+    if (postSaveWarnings.length) {
+      showToast(`保存済み: ${postSaveWarnings[0]}`);
+    }
     if (isEditing) {
       setEditingStatus(false);
       editingLogId = "";
