@@ -400,6 +400,28 @@ function recordedAtDateKey(value) {
   return raw.slice(0, 10);
 }
 
+function buildPraiseMessage(log) {
+  if (!log) return "";
+  const symptomScore = Number(log.symptom_score || 0);
+  const moodScore = Number(log.mood_score || 0);
+  const sleepQualityScore = Number(log.sleep_quality_score || 0);
+  const sleepHours = Number(log.sleep_hours || 0);
+
+  if (symptomScore <= 2 && moodScore >= 7 && sleepQualityScore >= 7 && sleepHours >= 6) {
+    return "今日はかなり良い流れです。この調子で続けられていて、とても良いです。";
+  }
+  if (symptomScore <= 3 && moodScore >= 6) {
+    return "今日は少し安定して過ごせています。ここまで記録を続けているのが良い流れです。";
+  }
+  if (moodScore >= 8) {
+    return "気分が上向いていて良いですね。こういう日を記録できているのは大きいです。";
+  }
+  if (sleepQualityScore >= 8 || sleepHours >= 7.5) {
+    return "しっかり休めた日として残せていて良いです。回復の手がかりになります。";
+  }
+  return "";
+}
+
 function normalizeDailyLogInput(input) {
   const body = input && typeof input === "object" ? input : {};
   const source = body.record && typeof body.record === "object" && !Array.isArray(body.record) ? body.record : body;
@@ -1694,9 +1716,12 @@ const server = createServer(async (req, res) => {
       const last = userLogs[userLogs.length - 1];
       if (!last) return sendJson(res, 404, { error: "no logs found" });
 
-      const summaryText = `睡眠${last.sleep_hours}時間、症状スコア${last.symptom_score}、気分スコア${last.mood_score}の記録です。`;
+      const praise = buildPraiseMessage(last);
+      const summaryText = `睡眠${last.sleep_hours}時間、症状スコア${last.symptom_score}、気分スコア${last.mood_score}の記録です。${
+        praise ? ` ${praise}` : ""
+      }`;
       const payload = insightEnvelope(
-        { summary: summaryText },
+        { summary: summaryText, praise },
         ["sleep_hours", "symptom_score", "mood_score", "note"],
         userLogs.length
       );
