@@ -214,6 +214,13 @@ textarea {
   font-size: 14px;
 }
 
+.insight-note {
+  margin: 0 0 6px !important;
+  color: #8a6d54 !important;
+  font-size: 12px !important;
+  line-height: 1.5;
+}
+
 .doctor-container h2 {
   margin: 0 0 8px;
 }
@@ -331,6 +338,10 @@ pre {
   line-height: 1.4;
 }
 
+.slider-scale span {
+  flex: 0 0 44%;
+}
+
 .slider-scale span:last-child {
   text-align: right;
 }
@@ -392,8 +403,12 @@ input[type="range"]::-moz-range-thumb {
 }
 
 .meter {
-  display: inline-block;
-  min-width: 88px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 116px;
+  width: 116px;
+  min-width: 116px;
   text-align: center;
   font-weight: 700;
   border-radius: 999px;
@@ -401,6 +416,8 @@ input[type="range"]::-moz-range-thumb {
   background: var(--meter-bg, var(--accent-soft));
   color: var(--meter-ink, #5f4122);
   border: 1px solid var(--meter-border, #efc89b);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 
 .chips {
@@ -1015,7 +1032,9 @@ input[type="range"]::-moz-range-thumb {
   }
 
   .meter {
-    min-width: 84px;
+    flex-basis: 110px;
+    width: 110px;
+    min-width: 110px;
     font-size: 12px;
     padding: 2px 7px;
   }
