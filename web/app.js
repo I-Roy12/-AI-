@@ -94,6 +94,7 @@ const userScopeStatus = document.querySelector("#user-scope-status");
 const speechSynthesisSupported = "speechSynthesis" in window;
 const settingsKey = "health_journal_ui_settings_v1";
 const userIdStorageKey = "health_journal_user_id_v1";
+const userIdCookieName = "health_journal_user_id";
 const maxImageBytes = 3 * 1024 * 1024;
 const supportedImageMimeTypes = new Set(["image/jpeg", "image/jpg", "image/png", "image/webp", "image/gif"]);
 let recognition = null;
@@ -322,6 +323,34 @@ function createLocalUserId() {
   return `u_${Date.now().toString(36)}${randomPart}`;
 }
 
+function readCookie(name) {
+  const prefix = `${name}=`;
+  return String(document.cookie || "")
+    .split(";")
+    .map((part) => part.trim())
+    .find((part) => part.startsWith(prefix))
+    ?.slice(prefix.length) || "";
+}
+
+function writeCookie(name, value) {
+  document.cookie = `${name}=${encodeURIComponent(value)}; path=/; max-age=${60 * 60 * 24 * 365 * 2}; samesite=lax`;
+}
+
+function persistUserId(userId) {
+  const normalized = String(userId || "").trim();
+  if (!normalized) return;
+  try {
+    localStorage.setItem(userIdStorageKey, normalized);
+  } catch (_) {
+    // ignore
+  }
+  try {
+    writeCookie(userIdCookieName, normalized);
+  } catch (_) {
+    // ignore
+  }
+}
+
 function setActiveUserId(userId) {
   const normalized = String(userId || "").trim();
   const hidden = form.querySelector("[name=user_id]");
@@ -341,13 +370,16 @@ function ensureLocalUserId() {
     userId = "";
   }
   if (!userId) {
-    userId = createLocalUserId();
     try {
-      localStorage.setItem(userIdStorageKey, userId);
+      userId = decodeURIComponent(readCookie(userIdCookieName) || "").trim();
     } catch (_) {
-      // ignore
+      userId = "";
     }
   }
+  if (!userId) {
+    userId = createLocalUserId();
+  }
+  persistUserId(userId);
   setActiveUserId(userId);
   return userId;
 }
