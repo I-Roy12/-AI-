@@ -77,6 +77,8 @@ const cleanupStatus = document.querySelector("#cleanup-status");
 const noteDisclaimerText = document.querySelector("#note-disclaimer-text");
 const copyNoteDisclaimerBtn = document.querySelector("#copy-note-disclaimer-btn");
 const noteDisclaimerStatus = document.querySelector("#note-disclaimer-status");
+const draftNoteBtn = document.querySelector("#draft-note-btn");
+const draftNoteStatus = document.querySelector("#draft-note-status");
 const toast = document.querySelector("#toast");
 const consentModal = document.querySelector("#consent-modal");
 const consentCheck = document.querySelector("#consent-check");
@@ -340,6 +342,43 @@ function normalizeSleepHours(value, fallback = 7) {
   return Math.max(0, Math.min(24, num));
 }
 
+function formatSymptomsDisplay(symptoms) {
+  if (!Array.isArray(symptoms) || !symptoms.length) return "症状なし";
+  return symptoms.join("・");
+}
+
+function describeScore(inputName, value) {
+  const meta = sliderMeta[inputName];
+  if (!meta) return `${value}`;
+  const state = meta.states.find((item) => value <= item.max) || meta.states[meta.states.length - 1];
+  return state.label;
+}
+
+function buildDraftNoteText() {
+  const symptomsInput = getSymptomsInput();
+  const medicationInput = form.querySelector("[name=medication_status]");
+  const symptomScore = normalizeScore(form.querySelector("[name=symptom_score]")?.value, 0);
+  const moodScore = normalizeScore(form.querySelector("[name=mood_score]")?.value, 0);
+  const sleepQualityScore = normalizeScore(form.querySelector("[name=sleep_quality_score]")?.value, 0);
+  const sleepHours = normalizeSleepHours(form.querySelector("[name=sleep_hours]")?.value, 0);
+  const symptoms = String(symptomsInput?.value || "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const medication = String(medicationInput?.value || "unknown");
+
+  const opening = symptoms.length
+    ? `今日は${symptoms.join("と")}が気になりました。`
+    : "今日ははっきりした症状はありませんでした。";
+  const symptomSentence = `つらさは${symptomScore}/10で、${describeScore("symptom_score", symptomScore)}寄りです。`;
+  const moodSentence = `気分は${moodScore}/10で、${describeScore("mood_score", moodScore)}でした。`;
+  const sleepSentence = `睡眠は${sleepHours}時間で、質は${sleepQualityScore}/10の${describeScore("sleep_quality_score", sleepQualityScore)}でした。`;
+  const medicationSentence =
+    medication === "taken" ? "服薬はできました。" : medication === "missed" ? "服薬は飲み忘れがありました。" : "服薬はありませんでした。";
+
+  return [opening, symptomSentence, moodSentence, sleepSentence, medicationSentence].join(" ");
+}
+
 function isNotFoundError(error) {
   return Number(error?.status || 0) === 404 || getRawErrorCode(error) === "not found";
 }
@@ -572,6 +611,24 @@ function appendVoiceToDailyNote(text) {
   return true;
 }
 
+function applyDraftNote() {
+  const note = form.querySelector("textarea[name=note]");
+  if (!note) return false;
+  const draft = buildDraftNoteText();
+  const current = String(note.value || "").trim();
+  if (!current) {
+    note.value = draft;
+    return true;
+  }
+  if (current.includes(draft)) return false;
+  note.value = `${current}\n${draft}`;
+  return true;
+}
+
+function setDraftNoteStatus(text = "未作成") {
+  if (draftNoteStatus) draftNoteStatus.textContent = text;
+}
+
 function setVoiceLastText(text, prefix = "最新の音声") {
   if (!voiceLast) return;
   voiceLast.textContent = `${prefix}: ${text || "（空）"}`;
@@ -664,6 +721,7 @@ function clearEditMode({ keepForm = true } = {}) {
   if (submitBtn) submitBtn.textContent = submitButtonLabel();
   if (!keepForm) {
     resetFormInputs();
+    setDraftNoteStatus();
   }
 }
 
@@ -1219,7 +1277,7 @@ function renderRecent(items) {
   }
   for (const item of items) {
     const li = document.createElement("li");
-    const symptoms = Array.isArray(item.symptoms) ? item.symptoms.join("・") : "-";
+    const symptoms = formatSymptomsDisplay(item.symptoms);
     li.textContent = `${item.recorded_at} / ${symptoms} / つらさ${item.symptom_score} / 気分${item.mood_score}`;
     recentList.append(li);
   }
@@ -1478,6 +1536,7 @@ function resetFormInputs() {
   }
   if (symptomsInput) symptomsInput.value = "";
   if (note) note.value = "";
+  setDraftNoteStatus();
   setRangeValue("symptom_score", 0);
   setRangeValue("mood_score", 0);
   setRangeValue("sleep_quality_score", 0);
@@ -2113,7 +2172,7 @@ form.addEventListener("submit", async (event) => {
     const payload = {
       user_id: String(formData.get("user_id") || getUserId()).trim(),
       recorded_at: normalizeRecordedAt(formData.get("recorded_at")),
-      symptoms: symptoms.length ? symptoms : ["未入力"],
+      symptoms,
       symptom_score: normalizeScore(formData.get("symptom_score"), 0),
       mood_score: normalizeScore(formData.get("mood_score"), 0),
       sleep_hours: normalizeSleepHours(formData.get("sleep_hours"), 0),
@@ -2180,7 +2239,7 @@ form.addEventListener("submit", async (event) => {
       try {
         const refreshed = await loadByDate(reviewDate.value);
         if (refreshed?.item) {
-          reviewView.textContent = `${refreshed.item.recorded_at} / 症状: ${(refreshed.item.symptoms || []).join("・")} / つらさ${refreshed.item.symptom_score} / 気分${refreshed.item.mood_score} / メモ: ${refreshed.item.note || "-"}`;
+          reviewView.textContent = `${refreshed.item.recorded_at} / 症状: ${formatSymptomsDisplay(refreshed.item.symptoms)} / つらさ${refreshed.item.symptom_score} / 気分${refreshed.item.mood_score} / メモ: ${refreshed.item.note || "-"}`;
           reviewedLogItem = refreshed.item;
         }
       } catch (error) {
@@ -2325,12 +2384,20 @@ reviewBtn.addEventListener("click", async () => {
     const item = data.item;
     reviewedLogItem = item;
     if (reviewEditBtn) reviewEditBtn.classList.remove("hidden");
-    reviewView.textContent = `${item.recorded_at} / 症状: ${(item.symptoms || []).join("・")} / つらさ${item.symptom_score} / 気分${item.mood_score} / メモ: ${item.note || "-"}`;
+    reviewView.textContent = `${item.recorded_at} / 症状: ${formatSymptomsDisplay(item.symptoms)} / つらさ${item.symptom_score} / 気分${item.mood_score} / メモ: ${item.note || "-"}`;
     show(data);
   } catch (error) {
     reportError("日付確認エラー", error);
   }
 });
+
+if (draftNoteBtn) {
+  draftNoteBtn.addEventListener("click", () => {
+    const applied = applyDraftNote();
+    setDraftNoteStatus(applied ? "下書きをメモに追加しました" : "同じ下書きがあるため追加していません");
+    showToast(applied ? "メモ下書きを入れました" : "同じ内容がすでに入っています");
+  });
+}
 
 if (reviewEditBtn) {
   reviewEditBtn.addEventListener("click", () => {

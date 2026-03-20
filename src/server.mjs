@@ -345,7 +345,6 @@ function validateLogInput(body) {
     return "recorded_at must be valid datetime";
   }
   if (!Array.isArray(body.symptoms)) return "symptoms must be array";
-  if (!body.symptoms.length) return "symptoms must not be empty";
   if (body.symptoms.some((item) => typeof item !== "string" || !item.trim() || item.length > 40)) {
     return "symptoms items must be non-empty string (max 40)";
   }
@@ -448,7 +447,6 @@ function normalizeDailyLogInput(input) {
     .map((item) => String(item || "").trim())
     .filter(Boolean)
     .map((item) => item.slice(0, 40));
-  if (!symptoms.length) symptoms = ["未入力"];
 
   const symptomScoreRaw = source.symptom_score ?? source.symptomScore ?? body.symptom_score ?? body.symptomScore;
   const moodScoreRaw = source.mood_score ?? source.moodScore ?? body.mood_score ?? body.moodScore;

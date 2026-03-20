@@ -149,6 +149,11 @@ h1 {
   align-items: center;
 }
 
+#draft-note-btn {
+  background: #f3e8d6;
+  color: #7f5b34;
+}
+
 #editing-status.is-editing {
   color: #8a5b24;
   font-weight: 700;

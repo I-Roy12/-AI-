@@ -63,7 +63,7 @@
         <form id="log-form">
           <input name="user_id" value="" required type="hidden" />
           <input name="recorded_at" value="" required type="hidden" />
-          <label>症状（カンマ区切り）<input name="symptoms" value="" required /></label>
+          <label>症状（カンマ区切り・空でもOK）<input name="symptoms" value="" /></label>
           <div class="chips">
             <p class="chips-title">症状をタップして追加</p>
             <button type="button" class="chip symptom-chip" data-symptom="頭痛">頭痛</button>
@@ -129,6 +129,10 @@
             </select>
           </label>
           <label>ひとことメモ<textarea name="note"></textarea></label>
+          <div class="review-row">
+            <button type="button" id="draft-note-btn">メモ下書きを自動作成</button>
+            <p id="draft-note-status" class="last-sync">未作成</p>
+          </div>
           <div class="image-box">
             <p class="chips-title">画像メモ（任意）</p>
             <div class="review-row">
