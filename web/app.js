@@ -387,15 +387,46 @@ function buildDraftNoteText() {
     .map((s) => s.trim())
     .filter(Boolean);
   const medication = String(medicationInput?.value || "unknown");
+  const opening = (() => {
+    if (symptoms.length && symptomScore >= 7) {
+      return `今日は${symptoms.join("と")}がけっこう気になりました。`;
+    }
+    if (symptoms.length) {
+      return `今日は${symptoms.join("と")}が少し気になりました。`;
+    }
+    if (symptomScore <= 2 && moodScore >= 7) {
+      return "今日は全体的にわりと落ち着いて過ごせました。";
+    }
+    return "今日は大きな症状はないけれど、体調の様子を記録しておきます。";
+  })();
 
-  const opening = symptoms.length
-    ? `今日は${symptoms.join("と")}が気になりました。`
-    : "今日ははっきりした症状はありませんでした。";
-  const symptomSentence = `つらさは${symptomScore}/10で、${describeScore("symptom_score", symptomScore)}寄りです。`;
-  const moodSentence = `気分は${moodScore}/10で、${describeScore("mood_score", moodScore)}でした。`;
-  const sleepSentence = `睡眠は${sleepHours}時間で、質は${sleepQualityScore}/10の${describeScore("sleep_quality_score", sleepQualityScore)}でした。`;
+  const symptomSentence =
+    symptomScore >= 8
+      ? `しんどさは${symptomScore}/10くらいで、かなりつらめでした。`
+      : symptomScore >= 5
+        ? `しんどさは${symptomScore}/10くらいで、少し無理はしない方がよさそうでした。`
+        : `しんどさは${symptomScore}/10くらいで、比較的落ち着いていました。`;
+
+  const moodSentence =
+    moodScore >= 8
+      ? `気分は${moodScore}/10で、わりと前向きに過ごせました。`
+      : moodScore >= 5
+        ? `気分は${moodScore}/10で、ぼちぼちという感じでした。`
+        : `気分は${moodScore}/10で、少し低めでした。`;
+
+  const sleepSentence =
+    sleepQualityScore >= 8
+      ? `睡眠は${sleepHours}時間くらいで、わりとしっかり休めた感じです。`
+      : sleepQualityScore >= 5
+        ? `睡眠は${sleepHours}時間くらいで、いつも通りか少し浅めでした。`
+        : `睡眠は${sleepHours}時間くらいで、あまり休めた感じはありませんでした。`;
+
   const medicationSentence =
-    medication === "taken" ? "服薬はできました。" : medication === "missed" ? "服薬は飲み忘れがありました。" : "服薬はありませんでした。";
+    medication === "taken"
+      ? "服薬はできました。"
+      : medication === "missed"
+        ? "服薬は少し抜けてしまいました。"
+        : "服薬はありませんでした。";
 
   return [opening, symptomSentence, moodSentence, sleepSentence, medicationSentence].join(" ");
 }
