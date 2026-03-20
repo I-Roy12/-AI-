@@ -154,6 +154,21 @@ h1 {
   color: #7f5b34;
 }
 
+#calc-sleep-hours-btn {
+  background: #eef5e7;
+  color: #476338;
+}
+
+.sleep-time-box {
+  display: grid;
+  gap: 8px;
+}
+
+.sleep-time-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 #editing-status.is-editing {
   color: #8a5b24;
   font-weight: 700;
@@ -984,6 +999,10 @@ input[type="range"]::-moz-range-thumb {
 
   .review-row > * {
     min-width: 0;
+  }
+
+  .sleep-time-row {
+    grid-template-columns: 1fr;
   }
 
   .voice-box .review-row {

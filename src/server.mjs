@@ -368,6 +368,16 @@ function validateLogInput(body) {
   if (body.note !== undefined && body.note !== null && typeof body.note !== "string") {
     return "note must be string";
   }
+  if (body.sleep_start_time !== undefined && body.sleep_start_time !== null) {
+    if (typeof body.sleep_start_time !== "string") return "sleep_start_time must be string";
+    const value = String(body.sleep_start_time).trim();
+    if (value && !isClockTimeString(value)) return "sleep_start_time must be HH:MM";
+  }
+  if (body.sleep_end_time !== undefined && body.sleep_end_time !== null) {
+    if (typeof body.sleep_end_time !== "string") return "sleep_end_time must be string";
+    const value = String(body.sleep_end_time).trim();
+    if (value && !isClockTimeString(value)) return "sleep_end_time must be HH:MM";
+  }
   if (body.image_data_url !== undefined && body.image_data_url !== null && typeof body.image_data_url !== "string") {
     return "image_data_url must be string";
   }
@@ -397,6 +407,21 @@ function recordedAtDateKey(value) {
     return formatLocalDateKey(parsed);
   }
   return raw.slice(0, 10);
+}
+
+function isClockTimeString(value) {
+  return /^([01]\d|2[0-3]):([0-5]\d)$/.test(String(value || ""));
+}
+
+function computeSleepHoursFromClockTimes(startTime, endTime) {
+  if (!isClockTimeString(startTime) || !isClockTimeString(endTime)) return null;
+  const [startHour, startMinute] = String(startTime).split(":").map(Number);
+  const [endHour, endMinute] = String(endTime).split(":").map(Number);
+  let startTotal = startHour * 60 + startMinute;
+  let endTotal = endHour * 60 + endMinute;
+  if (endTotal < startTotal) endTotal += 24 * 60;
+  const minutes = endTotal - startTotal;
+  return Math.max(0, Math.min(24, Math.round((minutes / 60) * 2) / 2));
 }
 
 function buildPraiseMessage(log) {
@@ -451,6 +476,10 @@ function normalizeDailyLogInput(input) {
   const symptomScoreRaw = source.symptom_score ?? source.symptomScore ?? body.symptom_score ?? body.symptomScore;
   const moodScoreRaw = source.mood_score ?? source.moodScore ?? body.mood_score ?? body.moodScore;
   const sleepHoursRaw = source.sleep_hours ?? source.sleepHours ?? body.sleep_hours ?? body.sleepHours;
+  const sleepStartTimeRaw =
+    source.sleep_start_time ?? source.sleepStartTime ?? body.sleep_start_time ?? body.sleepStartTime ?? "";
+  const sleepEndTimeRaw =
+    source.sleep_end_time ?? source.sleepEndTime ?? body.sleep_end_time ?? body.sleepEndTime ?? "";
   const sleepQualityRaw =
     source.sleep_quality_score ??
     source.sleepQualityScore ??
@@ -474,7 +503,14 @@ function normalizeDailyLogInput(input) {
   const normalizedRecordedAt = Number.isNaN(Date.parse(recordedAtCandidate)) ? new Date().toISOString() : recordedAtCandidate;
   const symptomScore = Number.isFinite(Number(symptomScoreRaw)) ? Number(symptomScoreRaw) : 5;
   const moodScore = Number.isFinite(Number(moodScoreRaw)) ? Number(moodScoreRaw) : 5;
-  const sleepHours = Number.isFinite(Number(sleepHoursRaw)) ? Number(sleepHoursRaw) : 7;
+  const sleepStartTime = String(sleepStartTimeRaw || "").trim();
+  const sleepEndTime = String(sleepEndTimeRaw || "").trim();
+  const autoSleepHours = computeSleepHoursFromClockTimes(sleepStartTime, sleepEndTime);
+  const sleepHours = Number.isFinite(Number(autoSleepHours))
+    ? Number(autoSleepHours)
+    : Number.isFinite(Number(sleepHoursRaw))
+      ? Number(sleepHoursRaw)
+      : 7;
   const sleepQualityScore = Number.isFinite(Number(sleepQualityRaw)) ? Number(sleepQualityRaw) : 5;
   const medicationStatus = String(medicationRaw || "unknown").trim() || "unknown";
   return {
@@ -484,6 +520,8 @@ function normalizeDailyLogInput(input) {
     symptom_score: Math.max(0, Math.min(10, symptomScore)),
     mood_score: Math.max(0, Math.min(10, moodScore)),
     sleep_hours: Math.max(0, Math.min(24, sleepHours)),
+    sleep_start_time: sleepStartTime,
+    sleep_end_time: sleepEndTime,
     sleep_quality_score: Math.max(0, Math.min(10, sleepQualityScore)),
     medication_status: ["taken", "missed", "none", "unknown"].includes(medicationStatus) ? medicationStatus : "unknown",
     note: String(noteRaw || ""),

@@ -79,6 +79,10 @@ const copyNoteDisclaimerBtn = document.querySelector("#copy-note-disclaimer-btn"
 const noteDisclaimerStatus = document.querySelector("#note-disclaimer-status");
 const draftNoteBtn = document.querySelector("#draft-note-btn");
 const draftNoteStatus = document.querySelector("#draft-note-status");
+const sleepStartTimeInput = document.querySelector("#sleep-start-time");
+const sleepEndTimeInput = document.querySelector("#sleep-end-time");
+const calcSleepHoursBtn = document.querySelector("#calc-sleep-hours-btn");
+const sleepCalcStatus = document.querySelector("#sleep-calc-status");
 const toast = document.querySelector("#toast");
 const consentModal = document.querySelector("#consent-modal");
 const consentCheck = document.querySelector("#consent-check");
@@ -280,6 +284,8 @@ function localizeErrorMessage(raw, statusCode = 0) {
       symptom_score: "つらさゲージ",
       mood_score: "気分ゲージ",
       sleep_hours: "睡眠時間",
+      sleep_start_time: "寝た時間",
+      sleep_end_time: "起きた時間",
       sleep_quality_score: "睡眠の質ゲージ",
       medication_status: "服薬"
     };
@@ -340,6 +346,21 @@ function normalizeSleepHours(value, fallback = 7) {
   const num = Number(value);
   if (!Number.isFinite(num)) return fallback;
   return Math.max(0, Math.min(24, num));
+}
+
+function isClockTime(value) {
+  return /^([01]\d|2[0-3]):([0-5]\d)$/.test(String(value || ""));
+}
+
+function computeSleepHoursFromTimes(startTime, endTime) {
+  if (!isClockTime(startTime) || !isClockTime(endTime)) return null;
+  const [startHour, startMinute] = String(startTime).split(":").map(Number);
+  const [endHour, endMinute] = String(endTime).split(":").map(Number);
+  let startTotal = startHour * 60 + startMinute;
+  let endTotal = endHour * 60 + endMinute;
+  if (endTotal < startTotal) endTotal += 24 * 60;
+  const hours = (endTotal - startTotal) / 60;
+  return Math.max(0, Math.min(24, Math.round(hours * 2) / 2));
 }
 
 function formatSymptomsDisplay(symptoms) {
@@ -629,6 +650,30 @@ function setDraftNoteStatus(text = "未作成") {
   if (draftNoteStatus) draftNoteStatus.textContent = text;
 }
 
+function setSleepCalcStatus(text = "未計算") {
+  if (sleepCalcStatus) sleepCalcStatus.textContent = text;
+}
+
+function applySleepTimeCalculation({ announce = false } = {}) {
+  const start = String(sleepStartTimeInput?.value || "").trim();
+  const end = String(sleepEndTimeInput?.value || "").trim();
+  if (!start || !end) {
+    setSleepCalcStatus("寝た時間と起きた時間を入れると計算できます");
+    if (announce) showToast("寝た時間と起きた時間を両方入れてください");
+    return false;
+  }
+  const hours = computeSleepHoursFromTimes(start, end);
+  if (!Number.isFinite(hours)) {
+    setSleepCalcStatus("時刻形式を確認してください");
+    if (announce) showToast("時刻の形式を確認してください");
+    return false;
+  }
+  setSleepHours(hours);
+  setSleepCalcStatus(`自動計算: ${hours}時間`);
+  if (announce) showToast(`睡眠時間を ${hours}時間 に更新しました`);
+  return true;
+}
+
 function setVoiceLastText(text, prefix = "最新の音声") {
   if (!voiceLast) return;
   voiceLast.textContent = `${prefix}: ${text || "（空）"}`;
@@ -679,11 +724,18 @@ function enterEditMode(item, sourceDate = "") {
   if (symptomsInput) symptomsInput.value = Array.isArray(item.symptoms) ? item.symptoms.join(",") : "";
   if (medicationInput) medicationInput.value = item.medication_status || "unknown";
   if (noteInput) noteInput.value = item.note || "";
+  if (sleepStartTimeInput) sleepStartTimeInput.value = item.sleep_start_time || "";
+  if (sleepEndTimeInput) sleepEndTimeInput.value = item.sleep_end_time || "";
 
   setRangeValue("symptom_score", item.symptom_score ?? 5);
   setRangeValue("mood_score", item.mood_score ?? 5);
   setRangeValue("sleep_quality_score", item.sleep_quality_score ?? 5);
   setSleepHours(item.sleep_hours ?? 7);
+  if (item.sleep_start_time && item.sleep_end_time) {
+    setSleepCalcStatus(`計算済み: ${item.sleep_hours ?? 0}時間`);
+  } else {
+    setSleepCalcStatus();
+  }
 
   for (const chip of symptomChips) {
     const token = chip.getAttribute("data-symptom");
@@ -1537,6 +1589,9 @@ function resetFormInputs() {
   if (symptomsInput) symptomsInput.value = "";
   if (note) note.value = "";
   setDraftNoteStatus();
+  if (sleepStartTimeInput) sleepStartTimeInput.value = "";
+  if (sleepEndTimeInput) sleepEndTimeInput.value = "";
+  setSleepCalcStatus();
   setRangeValue("symptom_score", 0);
   setRangeValue("mood_score", 0);
   setRangeValue("sleep_quality_score", 0);
@@ -2176,6 +2231,8 @@ form.addEventListener("submit", async (event) => {
       symptom_score: normalizeScore(formData.get("symptom_score"), 0),
       mood_score: normalizeScore(formData.get("mood_score"), 0),
       sleep_hours: normalizeSleepHours(formData.get("sleep_hours"), 0),
+      sleep_start_time: String(formData.get("sleep_start_time") || "").trim(),
+      sleep_end_time: String(formData.get("sleep_end_time") || "").trim(),
       sleep_quality_score: normalizeScore(formData.get("sleep_quality_score"), 0),
       medication_status: String(formData.get("medication_status") || "unknown"),
       note: String(formData.get("note") || ""),
@@ -2397,6 +2454,20 @@ if (draftNoteBtn) {
     setDraftNoteStatus(applied ? "下書きをメモに追加しました" : "同じ下書きがあるため追加していません");
     showToast(applied ? "メモ下書きを入れました" : "同じ内容がすでに入っています");
   });
+}
+
+if (calcSleepHoursBtn) {
+  calcSleepHoursBtn.addEventListener("click", () => {
+    applySleepTimeCalculation({ announce: true });
+  });
+}
+
+for (const input of [sleepStartTimeInput, sleepEndTimeInput]) {
+  if (input) {
+    input.addEventListener("change", () => {
+      applySleepTimeCalculation();
+    });
+  }
 }
 
 if (reviewEditBtn) {

@@ -98,6 +98,17 @@
             </div>
           </div>
 
+          <div class="sleep-time-box">
+            <p class="chips-title">睡眠時間は寝た時間と起きた時間からも計算できます</p>
+            <div class="review-row sleep-time-row">
+              <label>寝た時間<input id="sleep-start-time" name="sleep_start_time" type="time" /></label>
+              <label>起きた時間<input id="sleep-end-time" name="sleep_end_time" type="time" /></label>
+            </div>
+            <div class="review-row">
+              <button type="button" id="calc-sleep-hours-btn">睡眠時間を自動計算</button>
+              <p id="sleep-calc-status" class="last-sync">未計算</p>
+            </div>
+          </div>
           <label>睡眠時間<input name="sleep_hours" type="number" step="0.5" value="0" required /></label>
 
           <div class="slider-wrap">
