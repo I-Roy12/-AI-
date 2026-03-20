@@ -241,6 +241,18 @@ textarea {
   line-height: 1.5;
 }
 
+.summary-praise {
+  margin-top: 8px !important;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: #eef8ea;
+  border: 1px solid #b9dbb1;
+  color: #36612f !important;
+  font-size: 13px !important;
+  font-weight: 600;
+  line-height: 1.6;
+}
+
 .doctor-container h2 {
   margin: 0 0 8px;
 }

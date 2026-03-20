@@ -8,6 +8,7 @@ const meters = document.querySelectorAll(".meter");
 const chips = document.querySelectorAll(".chip[data-chip]");
 const symptomChips = document.querySelectorAll(".symptom-chip");
 const summaryView = document.querySelector("#summary-view");
+const summaryPraiseView = document.querySelector("#summary-praise-view");
 const trendView = document.querySelector("#trend-view");
 const nextStepView = document.querySelector("#next-step-view");
 const recentList = document.querySelector("#recent-list");
@@ -1206,6 +1207,15 @@ async function loadSummary() {
     `/api/v1/insights/daily-summary?user_id=${encodeURIComponent(userId)}&date=${encodeURIComponent(date)}`
   );
   setSafeText(summaryView, data.summary || "まとめなし");
+  if (summaryPraiseView) {
+    if (data.praise) {
+      setSafeText(summaryPraiseView, `よかった点: ${data.praise}`);
+      summaryPraiseView.classList.remove("hidden");
+    } else {
+      setSafeText(summaryPraiseView, "");
+      summaryPraiseView.classList.add("hidden");
+    }
+  }
   return data;
 }
 

@@ -1753,9 +1753,7 @@ const server = createServer(async (req, res) => {
       if (!last) return sendJson(res, 404, { error: "no logs found" });
 
       const praise = buildPraiseMessage(last);
-      const summaryText = `睡眠${last.sleep_hours}時間、症状スコア${last.symptom_score}、気分スコア${last.mood_score}の記録です。${
-        praise ? ` ${praise}` : ""
-      }`;
+      const summaryText = `睡眠${last.sleep_hours}時間、症状スコア${last.symptom_score}、気分スコア${last.mood_score}の記録です。`;
       const payload = insightEnvelope(
         { summary: summaryText, praise },
         ["sleep_hours", "symptom_score", "mood_score", "note"],
