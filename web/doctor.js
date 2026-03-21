@@ -7,6 +7,15 @@ const doctorDemoShareMeta = document.querySelector("#doctor-demo-share-meta");
 const doctorQuickPatient = document.querySelector("#doctor-quick-patient");
 const doctorQuickRisk = document.querySelector("#doctor-quick-risk");
 const doctorQuickLatest = document.querySelector("#doctor-quick-latest");
+const doctorConsultationSource = document.querySelector("#doctor-consultation-source");
+const doctorConsultationChief = document.querySelector("#doctor-consultation-chief");
+const doctorConsultationOnset = document.querySelector("#doctor-consultation-onset");
+const doctorConsultationSeverity = document.querySelector("#doctor-consultation-severity");
+const doctorConsultationImpact = document.querySelector("#doctor-consultation-impact");
+const doctorConsultationMedication = document.querySelector("#doctor-consultation-medication");
+const doctorConsultationConcerns = document.querySelector("#doctor-consultation-concerns");
+const doctorConsultationDepartments = document.querySelector("#doctor-consultation-departments");
+const doctorConsultationBullets = document.querySelector("#doctor-consultation-bullets");
 const doctorMe = document.querySelector("#doctor-me");
 const doctorLogoutBtn = document.querySelector("#doctor-logout-btn");
 const doctorQueueRefreshBtn = document.querySelector("#doctor-queue-refresh-btn");
@@ -109,6 +118,7 @@ async function ensureDoctorAuth() {
 }
 
 function renderList(el, items, mapper) {
+  if (!el) return;
   el.innerHTML = "";
   if (!items.length) {
     const li = document.createElement("li");
@@ -121,6 +131,25 @@ function renderList(el, items, mapper) {
     li.textContent = mapper(item);
     el.append(li);
   }
+}
+
+function renderConsultationSummary(summary) {
+  const consultation = summary.consultation_summary || {};
+  const concerns = Array.isArray(consultation.patient_concerns) ? consultation.patient_concerns : [];
+  const impacts = Array.isArray(consultation.life_impact) ? consultation.life_impact : [];
+  const departments = Array.isArray(consultation.suggested_departments) ? consultation.suggested_departments : [];
+  const bullets = Array.isArray(consultation.clinician_bullets) ? consultation.clinician_bullets : [];
+  const sourceCount = Number(consultation.source_count || 0);
+
+  setText(doctorConsultationSource, `会話メモ抽出: ${sourceCount}件`);
+  setText(doctorConsultationChief, consultation.chief_complaint || "-");
+  setText(doctorConsultationOnset, consultation.onset || "-");
+  setText(doctorConsultationSeverity, consultation.severity || "-");
+  setText(doctorConsultationImpact, impacts.length ? impacts.join(" / ") : "-");
+  setText(doctorConsultationMedication, consultation.medication_overview || "-");
+  setText(doctorConsultationConcerns, concerns.length ? concerns.join(" / ") : "-");
+  setText(doctorConsultationDepartments, departments.length ? departments.join(" / ") : "-");
+  renderList(doctorConsultationBullets, bullets, (item) => item);
 }
 
 function setText(el, text) {
@@ -469,6 +498,7 @@ function applyData(data) {
     doctorQuickLatest,
     `${String(latest.recorded_at || "-").slice(0, 16)} / つらさ${latest.symptom_score ?? "-"} / 気分${latest.mood_score ?? "-"}`
   );
+  renderConsultationSummary(summary);
 
   setText(
     triageView,
@@ -548,6 +578,7 @@ async function loadDoctorView(token) {
     setText(doctorQuickPatient, "-");
     setText(doctorQuickRisk, "-");
     setText(doctorQuickLatest, "-");
+    renderConsultationSummary({});
   }
 }
 

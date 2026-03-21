@@ -135,6 +135,75 @@ test("doctor summary keeps image_evidence compatibility", () => {
   assert.equal(summary.patient.chronic_conditions, "喘息");
 });
 
+test("doctor summary builds clinician friendly consultation summary from note text", () => {
+  const symptomConfig = {
+    categories: [
+      {
+        id: "sleep_and_mood",
+        signals: ["不眠", "不安感"],
+        recommended_departments: ["心療内科", "精神科"]
+      }
+    ]
+  };
+  const providers = [
+    {
+      provider_id: "dr_001",
+      name: "みなとメンタルクリニック",
+      supported_categories: ["sleep_and_mood"],
+      online_available: true,
+      description_style_tags: [],
+      next_available_at: "2026-02-28T10:30:00+09:00"
+    }
+  ];
+
+  const providerService = createProviderMatchingService({ symptomConfig, providers });
+  const safetyService = createSafetyService({ safetyConfig, makeAuditId });
+  const logs = [
+    {
+      recorded_at: "2026-03-10T09:00:00+09:00",
+      symptoms: ["不眠"],
+      symptom_score: 5,
+      mood_score: 4,
+      sleep_hours: 5.5,
+      sleep_quality_score: 4,
+      medication_status: "taken",
+      note: "1週間前から眠れず、仕事に集中できない。受診するほどか不安。"
+    },
+    {
+      recorded_at: "2026-03-12T09:00:00+09:00",
+      symptoms: ["不眠", "不安感"],
+      symptom_score: 7,
+      mood_score: 3,
+      sleep_hours: 4.5,
+      sleep_quality_score: 3,
+      medication_status: "missed",
+      note: "夜中に何度も起きてしんどい。家事もしづらくて困っている。"
+    }
+  ];
+
+  const service = createDoctorSummaryService({
+    getUserLogs: () => logs,
+    getProfile: () => ({ display_name: "Demo" }),
+    evaluateSafety: safetyService.evaluateSafety,
+    computeTrend,
+    makeNextStep,
+    matchProviders: providerService.matchProviders,
+    average: (nums) => (nums.length ? nums.reduce((a, b) => a + b, 0) / nums.length : 0),
+    calcAge: () => null,
+    defaultDisclaimer: "これは参考情報です",
+    now: () => new Date("2026-03-22T00:00:00.000Z")
+  });
+
+  const summary = service.buildDoctorSummary("u_2", 14);
+
+  assert.equal(summary.consultation_summary.chief_complaint, "不眠・不安感中心");
+  assert.match(summary.consultation_summary.onset, /1週間前から/);
+  assert.match(summary.consultation_summary.severity, /最新 7\/10/);
+  assert.deepEqual(summary.consultation_summary.suggested_departments, ["心療内科", "精神科"]);
+  assert.equal(summary.consultation_summary.patient_concerns.length > 0, true);
+  assert.equal(summary.consultation_summary.clinician_bullets.length >= 4, true);
+});
+
 test("provider match prefers nearby provider when location is given", () => {
   const symptomConfig = {
     categories: [

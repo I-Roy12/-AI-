@@ -243,6 +243,30 @@
         <pre id="output" class="hidden">{}</pre>
       </section>
 
+      <section class="card consult-chat-card">
+        <h2>体調相談チャット</h2>
+        <p class="sub">
+          気になる症状や不安を、まず短く相談できます。診断確定ではなく、状態整理と次の行動の目安づくりを支援します。
+        </p>
+        <div class="consult-chat-examples" aria-label="相談例">
+          <button type="button" class="chat-example-btn" data-chat-example="頭痛とだるさが3日続いています。何を伝えると整理しやすいですか？">頭痛とだるさが3日続いています</button>
+          <button type="button" class="chat-example-btn" data-chat-example="昨日は眠れず、今日は気分もかなり低めです。まず何を確認するとよいですか？">眠れず気分も低いです</button>
+          <button type="button" class="chat-example-btn" data-chat-example="受診するほどか迷っています。受診前に整理しておくとよいことを教えてください。">受診するか迷っています</button>
+        </div>
+        <div id="consult-chat-messages" class="consult-chat-messages" aria-live="polite" aria-label="体調相談チャットログ"></div>
+        <form id="consult-chat-form" class="consult-chat-compose">
+          <label for="consult-chat-input">相談内容</label>
+          <div class="consult-chat-compose-row">
+            <textarea
+              id="consult-chat-input"
+              placeholder="例: 午後になると息苦しさとだるさが増します。まず何を整理すればよいですか？"
+            ></textarea>
+            <button type="submit" id="consult-chat-send-btn">送信</button>
+          </div>
+        </form>
+        <p id="consult-chat-status" class="last-sync">まずは相談例をタップするか、そのまま相談内容を入力してください。</p>
+      </section>
+
       <section class="card">
         <h2>最近の記録</h2>
         <ul id="recent-list" class="recent-list">
@@ -345,6 +369,49 @@
         <ul id="doctor-notes-list" class="recent-list">
           <li>まだコメントはありません</li>
         </ul>
+        <hr />
+        <section class="followup-card">
+          <h3>診察後の説明をやさしく整理</h3>
+          <p class="sub">先生に言われたことやメモを入れると、患者向けのやさしい言葉で整理します。</p>
+          <p class="insight-note">説明補助用の下書きです。判断に迷う点は、元の説明や医療機関へ確認してください。</p>
+          <label>
+            先生の説明・メモ
+            <textarea id="doctor-followup-input" placeholder="例: 1週間は薬を続けて、水分をしっかり取ってください。熱が上がる、食べられない、息苦しい時は早めに相談してください。"></textarea>
+          </label>
+          <div class="review-row">
+            <button id="doctor-followup-btn" type="button">やさしく整理する</button>
+            <button id="doctor-followup-use-note-btn" type="button">最新コメントを使う</button>
+            <button id="doctor-followup-sample-btn" type="button">サンプル入力</button>
+            <p id="doctor-followup-status" class="last-sync">未整理</p>
+          </div>
+          <div id="doctor-followup-output" class="followup-output hidden">
+            <article class="followup-item followup-item-wide">
+              <h4>かんたんな説明</h4>
+              <p id="doctor-followup-simple">まだありません</p>
+            </article>
+            <div class="followup-grid">
+              <article class="followup-item">
+                <h4>今やること</h4>
+                <ul id="doctor-followup-actions" class="followup-list">
+                  <li>まだありません</li>
+                </ul>
+              </article>
+              <article class="followup-item">
+                <h4>注意して見ること</h4>
+                <ul id="doctor-followup-watch" class="followup-list">
+                  <li>まだありません</li>
+                </ul>
+              </article>
+              <article class="followup-item">
+                <h4>次に相談する目安</h4>
+                <ul id="doctor-followup-consult" class="followup-list">
+                  <li>まだありません</li>
+                </ul>
+              </article>
+            </div>
+            <p class="followup-disclaimer">この表示は診断ではなく、先生の説明を理解しやすくするための整理文です。</p>
+          </div>
+        </section>
         <hr />
         <p class="sub">公開前クリーンアップ（デモ公開向け）</p>
         <div class="review-row">

@@ -13,6 +13,12 @@ const trendView = document.querySelector("#trend-view");
 const nextStepView = document.querySelector("#next-step-view");
 const recentList = document.querySelector("#recent-list");
 const aiMessage = document.querySelector("#ai-message");
+const consultChatMessages = document.querySelector("#consult-chat-messages");
+const consultChatForm = document.querySelector("#consult-chat-form");
+const consultChatInput = document.querySelector("#consult-chat-input");
+const consultChatSendBtn = document.querySelector("#consult-chat-send-btn");
+const consultChatStatus = document.querySelector("#consult-chat-status");
+const consultChatExampleBtns = document.querySelectorAll(".chat-example-btn");
 const reviewDate = document.querySelector("#review-date");
 const reviewBtn = document.querySelector("#review-btn");
 const reviewEditBtn = document.querySelector("#review-edit-btn");
@@ -71,6 +77,16 @@ const createShareLinkBtn = document.querySelector("#create-share-link-btn");
 const shareStatus = document.querySelector("#share-status");
 const shareLinksList = document.querySelector("#share-links-list");
 const doctorNotesList = document.querySelector("#doctor-notes-list");
+const doctorFollowupInput = document.querySelector("#doctor-followup-input");
+const doctorFollowupBtn = document.querySelector("#doctor-followup-btn");
+const doctorFollowupUseNoteBtn = document.querySelector("#doctor-followup-use-note-btn");
+const doctorFollowupSampleBtn = document.querySelector("#doctor-followup-sample-btn");
+const doctorFollowupStatus = document.querySelector("#doctor-followup-status");
+const doctorFollowupOutput = document.querySelector("#doctor-followup-output");
+const doctorFollowupSimple = document.querySelector("#doctor-followup-simple");
+const doctorFollowupActions = document.querySelector("#doctor-followup-actions");
+const doctorFollowupWatch = document.querySelector("#doctor-followup-watch");
+const doctorFollowupConsult = document.querySelector("#doctor-followup-consult");
 const exportStatus = document.querySelector("#export-status");
 const revokeAllShareBtn = document.querySelector("#revoke-all-share-btn");
 const seedDemoCleanBtn = document.querySelector("#seed-demo-clean-btn");
@@ -102,6 +118,7 @@ const speechSynthesisSupported = "speechSynthesis" in window;
 const settingsKey = "health_journal_ui_settings_v1";
 const userIdStorageKey = "health_journal_user_id_v1";
 const userIdCookieName = "health_journal_user_id";
+const doctorFollowupStoragePrefix = "health_doctor_followup_v1";
 const maxImageBytes = 3 * 1024 * 1024;
 const supportedImageMimeTypes = new Set(["image/jpeg", "image/jpg", "image/png", "image/webp", "image/gif"]);
 let recognition = null;
@@ -123,6 +140,9 @@ let consentGranted = false;
 let consentStateChecked = false;
 let consentVersionRequired = "consent_v1";
 let consentFetchSeq = 0;
+let consultChatSeq = 0;
+let consultChatHistory = [];
+let latestDoctorNotes = [];
 
 const sliderMeta = {
   symptom_score: {
@@ -202,6 +222,216 @@ function showToast(message, timeoutMs = 2000) {
   }, timeoutMs);
 }
 
+function setConsultChatStatus(text) {
+  if (consultChatStatus) {
+    consultChatStatus.textContent = text;
+  }
+}
+
+function scrollConsultChatToBottom() {
+  if (!consultChatMessages) return;
+  consultChatMessages.scrollTop = consultChatMessages.scrollHeight;
+}
+
+function renderConsultChatMessages() {
+  if (!consultChatMessages) return;
+  consultChatMessages.innerHTML = "";
+  for (const item of consultChatHistory) {
+    const wrap = document.createElement("article");
+    wrap.className = `consult-chat-message is-${item.role}${item.pending ? " is-pending" : ""}`;
+
+    const meta = document.createElement("p");
+    meta.className = "consult-chat-meta";
+    meta.textContent = item.role === "user" ? "あなた" : "AIサポート";
+
+    const bubble = document.createElement("p");
+    bubble.className = "consult-chat-bubble";
+    bubble.textContent = item.pending ? "考え中..." : item.text;
+
+    wrap.append(meta, bubble);
+    consultChatMessages.append(wrap);
+  }
+  scrollConsultChatToBottom();
+}
+
+function appendConsultChatMessage(role, text, options = {}) {
+  consultChatSeq += 1;
+  consultChatHistory.push({
+    id: consultChatSeq,
+    role,
+    text: String(text || ""),
+    pending: Boolean(options.pending)
+  });
+  renderConsultChatMessages();
+  return consultChatSeq;
+}
+
+function updateConsultChatMessage(messageId, patch = {}) {
+  const item = consultChatHistory.find((entry) => entry.id === messageId);
+  if (!item) return;
+  if (Object.prototype.hasOwnProperty.call(patch, "text")) {
+    item.text = String(patch.text || "");
+  }
+  if (Object.prototype.hasOwnProperty.call(patch, "pending")) {
+    item.pending = Boolean(patch.pending);
+  }
+  renderConsultChatMessages();
+}
+
+function setConsultChatBusy(busy) {
+  if (consultChatInput) consultChatInput.disabled = busy;
+  if (consultChatSendBtn) consultChatSendBtn.disabled = busy;
+  for (const btn of consultChatExampleBtns) {
+    btn.disabled = busy;
+  }
+}
+
+function getConsultChatContext() {
+  const symptoms = String(getSymptomsInput()?.value || "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const note = String(form.querySelector("[name=note]")?.value || "").trim();
+  return {
+    recorded_date: getRecordedDate(),
+    symptoms,
+    symptom_score: normalizeScore(form.querySelector("[name=symptom_score]")?.value, 0),
+    mood_score: normalizeScore(form.querySelector("[name=mood_score]")?.value, 0),
+    sleep_hours: normalizeSleepHours(form.querySelector("[name=sleep_hours]")?.value, 0),
+    sleep_quality_score: normalizeScore(form.querySelector("[name=sleep_quality_score]")?.value, 0),
+    summary: String(summaryView?.textContent || "").trim(),
+    trend: String(trendView?.textContent || "").trim(),
+    next_step: String(nextStepView?.textContent || "").trim(),
+    note: note.slice(0, 220)
+  };
+}
+
+function buildConsultChatFallbackReply(message) {
+  const text = String(message || "").trim();
+  const context = getConsultChatContext();
+  const lines = ["いまの情報をもとに、体調の整理を一緒に進めます。"];
+
+  if (context.symptoms.length) {
+    lines.push(`記録中の症状は ${context.symptoms.join("・")} です。`);
+  } else {
+    lines.push("まだ症状欄が空なら、いちばん気になる症状を1つだけ書くところから始めると整理しやすいです。");
+  }
+
+  if (context.symptom_score >= 8 || /息苦|胸|激しい|強い痛み|意識|救急|出血/.test(text)) {
+    lines.push("強い痛み、息苦しさ、意識の変化などがある場合は、このチャットで様子見せず医療機関へ相談してください。");
+  } else if (/受診|病院|何科|相談先/.test(text)) {
+    lines.push("受診前には「いつから」「どのくらい続くか」「悪化するきっかけ」「服薬状況」をメモしておくと伝わりやすいです。");
+  } else if (/眠れ|睡眠|夜中/.test(text)) {
+    lines.push("睡眠の相談では、寝つきにくさ、中途覚醒、起床時のだるさがあるかを分けて書くと次の一歩が見えやすくなります。");
+  } else if (/不安|心配|気分|しんど/.test(text) || context.mood_score <= 3) {
+    lines.push("不安や気分の落ち込みがあるときは、いつ強くなるか、日常生活で困っていることは何かを一緒に書くと整理しやすいです。");
+  } else {
+    lines.push("症状の強さ、続いている日数、睡眠や食事の変化があれば、次の判断材料として十分役立ちます。");
+  }
+
+  if (context.summary && context.summary !== "まだありません") {
+    lines.push(`今の記録では「${context.summary}」という要約が出ています。`);
+  }
+
+  if (context.note) {
+    lines.push("必要なら、今のメモにある内容もそのまま送って大丈夫です。");
+  }
+
+  lines.push("この返答は診断確定ではありません。心配が強いときは受診や医療相談を優先してください。");
+  return lines.join(" ");
+}
+
+async function requestConsultChatReply(message) {
+  const payload = {
+    user_id: getUserId(),
+    text: String(message || "").trim(),
+    history: consultChatHistory
+      .filter((item) => !item.pending)
+      .slice(-6)
+      .map((item) => ({
+        role: item.role,
+        content: item.text
+      })),
+    context: getConsultChatContext()
+  };
+
+  try {
+    const data = await api("/api/v1/chat/health", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    const reply = [
+      data?.reply,
+      data?.message,
+      data?.answer,
+      data?.output_text,
+      typeof data?.content === "string" ? data.content : ""
+    ].find((item) => String(item || "").trim());
+    if (reply) {
+      return {
+        reply: String(reply).trim(),
+        mode: "api",
+        suggestedDepartment: String(data?.suggested_department?.name || "").trim(),
+        urgencyLevel: String(data?.urgency_hint?.level || "").trim()
+      };
+    }
+  } catch (error) {
+    const status = Number(error?.status || 0);
+    return {
+      reply: buildConsultChatFallbackReply(message),
+      mode: status === 404 ? "fallback_missing" : "fallback_error"
+    };
+  }
+
+  return { reply: buildConsultChatFallbackReply(message), mode: "fallback_empty" };
+}
+
+async function submitConsultChatMessage(rawText) {
+  const text = String(rawText || "").trim();
+  if (!text) {
+    setConsultChatStatus("相談内容を入力してください。");
+    if (consultChatInput) consultChatInput.focus();
+    return;
+  }
+
+  appendConsultChatMessage("user", text);
+  if (consultChatInput) {
+    consultChatInput.value = "";
+    consultChatInput.style.height = "";
+  }
+
+  setConsultChatBusy(true);
+  setConsultChatStatus("AIが相談内容を整理しています...");
+  const pendingId = appendConsultChatMessage("assistant", "", { pending: true });
+
+  try {
+    const result = await requestConsultChatReply(text);
+    updateConsultChatMessage(pendingId, { text: result.reply, pending: false });
+    if (result.mode === "api") {
+      const details = [result.suggestedDepartment ? `相談先候補: ${result.suggestedDepartment}` : "", result.urgencyLevel ? `緊急度目安: ${result.urgencyLevel}` : ""]
+        .filter(Boolean)
+        .join(" / ");
+      setConsultChatStatus(details ? `AIが返答しました。${details}` : "AIが返答しました。続けて相談できます。");
+    } else {
+      setConsultChatStatus("チャットAPI準備中のため、画面内の簡易返答で案内しています。");
+    }
+  } finally {
+    setConsultChatBusy(false);
+    if (consultChatInput) consultChatInput.focus();
+  }
+}
+
+function initConsultChat() {
+  if (!consultChatMessages) return;
+  consultChatHistory = [];
+  appendConsultChatMessage(
+    "assistant",
+    "体調の不安を短く相談できます。症状、いつからか、いちばん困っていることを1つずつ書いてください。強い症状がある場合は受診を優先してください。"
+  );
+  setConsultChatStatus("まずは相談例をタップするか、そのまま相談内容を入力してください。");
+}
+
 function switchPage(page) {
   const isMypage = page === "mypage";
   recordPage.classList.toggle("hidden", isMypage);
@@ -216,6 +446,9 @@ function humanize(data) {
   }
   if (data?.saved?.status === "updated") {
     return "記録を更新しました。必要なら「AI要約を更新」で最新表示にできます。";
+  }
+  if (data?.followup_summary?.simple_explanation) {
+    return "診察後の説明を、患者向けのやさしい言葉で整理しました。";
   }
   if (data?.summary) return `今日のまとめ: ${data.summary}`;
   if (data?.step) return `次の一歩: ${data.step}`;
@@ -843,6 +1076,199 @@ function loadSettings() {
   } catch (_) {
     // ignore
   }
+}
+
+function getDoctorFollowupStorageKey() {
+  return `${doctorFollowupStoragePrefix}:${getUserId() || "guest"}`;
+}
+
+function setDoctorFollowupStatus(text = "未整理") {
+  if (doctorFollowupStatus) doctorFollowupStatus.textContent = text;
+}
+
+function renderFollowupList(el, items, emptyText) {
+  if (!el) return;
+  el.innerHTML = "";
+  const safeItems = Array.isArray(items) ? items.filter(Boolean) : [];
+  if (!safeItems.length) {
+    const li = document.createElement("li");
+    li.textContent = emptyText;
+    el.append(li);
+    return;
+  }
+  for (const item of safeItems) {
+    const li = document.createElement("li");
+    li.textContent = item;
+    el.append(li);
+  }
+}
+
+function renderDoctorFollowupResult(result) {
+  if (!doctorFollowupOutput || !doctorFollowupSimple) return;
+  if (!result) {
+    doctorFollowupOutput.classList.add("hidden");
+    doctorFollowupSimple.textContent = "まだありません";
+    renderFollowupList(doctorFollowupActions, [], "まだありません");
+    renderFollowupList(doctorFollowupWatch, [], "まだありません");
+    renderFollowupList(doctorFollowupConsult, [], "まだありません");
+    return;
+  }
+
+  doctorFollowupOutput.classList.remove("hidden");
+  doctorFollowupSimple.textContent = result.simple_explanation || "まだありません";
+  renderFollowupList(doctorFollowupActions, result.now_actions, "今すぐの行動は見つかりませんでした");
+  renderFollowupList(doctorFollowupWatch, result.watch_points, "気になる変化があればメモしておきましょう");
+  renderFollowupList(doctorFollowupConsult, result.consult_timing, "迷ったら受診先へ確認しましょう");
+}
+
+function saveDoctorFollowupState({ inputText = "", result = null } = {}) {
+  try {
+    localStorage.setItem(
+      getDoctorFollowupStorageKey(),
+      JSON.stringify({
+        input_text: String(inputText || ""),
+        result: result || null
+      })
+    );
+  } catch (_) {
+    // ignore
+  }
+}
+
+function loadDoctorFollowupState() {
+  if (!doctorFollowupInput) return null;
+  try {
+    const raw = localStorage.getItem(getDoctorFollowupStorageKey());
+    if (!raw) {
+      renderDoctorFollowupResult(null);
+      setDoctorFollowupStatus("未整理");
+      return null;
+    }
+    const saved = JSON.parse(raw);
+    doctorFollowupInput.value = String(saved?.input_text || "");
+    renderDoctorFollowupResult(saved?.result || null);
+    setDoctorFollowupStatus(saved?.result ? "前回の整理結果を表示中" : doctorFollowupInput.value ? "下書きあり" : "未整理");
+    return saved;
+  } catch (_) {
+    renderDoctorFollowupResult(null);
+    setDoctorFollowupStatus("未整理");
+    return null;
+  }
+}
+
+function normalizeDoctorFollowupText(text) {
+  return String(text || "")
+    .replace(/\r\n/g, "\n")
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n{2,}/g, "\n")
+    .trim();
+}
+
+function splitJapaneseSentences(text) {
+  return normalizeDoctorFollowupText(text)
+    .split(/[\n。！？]+/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function simplifyMedicalLanguage(text) {
+  const replacements = [
+    [/頓服/g, "つらい時だけ使う薬"],
+    [/経過観察/g, "今すぐ大きな処置はせず、様子を見ること"],
+    [/再診/g, "もう一度相談すること"],
+    [/服薬継続/g, "薬を続けること"],
+    [/安静/g, "無理をせず休むこと"],
+    [/水分摂取/g, "こまめに水分をとること"],
+    [/炎症/g, "体の中の刺激やはれ"],
+    [/鎮痛剤/g, "痛みをやわらげる薬"],
+    [/解熱剤/g, "熱を下げる薬"],
+    [/症状増悪/g, "症状が強くなること"],
+    [/疼痛/g, "痛み"],
+    [/呼吸苦/g, "息苦しさ"],
+    [/食思不振/g, "食欲が出ないこと"],
+    [/発熱/g, "熱が出ること"]
+  ];
+
+  let outputText = String(text || "");
+  for (const [pattern, replacement] of replacements) {
+    outputText = outputText.replace(pattern, replacement);
+  }
+  return outputText;
+}
+
+function uniqueTexts(items) {
+  return Array.from(new Set((items || []).map((item) => String(item || "").trim()).filter(Boolean)));
+}
+
+function pickSentencesByKeywords(sentences, keywords, limit = 3) {
+  return uniqueTexts(
+    sentences.filter((sentence) => keywords.some((keyword) => sentence.includes(keyword)))
+  ).slice(0, limit);
+}
+
+function buildSimpleExplanation(sentences) {
+  if (!sentences.length) {
+    return "先生の説明を、やさしい言葉に整理できませんでした。";
+  }
+  const core = sentences.slice(0, 2).join("。");
+  return `先生の話をやさしく言うと、${core}。`;
+}
+
+function buildActionFallback(text) {
+  if (text.includes("薬")) return "薬の使い方は、先生に言われた通りに続けます。";
+  if (text.includes("水分")) return "水分を少しずつでもこまめにとります。";
+  if (text.includes("休")) return "今日は無理をしすぎず、休める時間を確保します。";
+  return "まずは今日やることを1つずつ確認し、無理のない範囲で続けます。";
+}
+
+function buildWatchFallback(text) {
+  if (text.includes("熱")) return "熱の上がり方と、しんどさの強まり方を見ます。";
+  if (text.includes("痛")) return "痛みの強さや広がり方を見ます。";
+  if (text.includes("咳") || text.includes("息")) return "息苦しさや咳の変化を見ます。";
+  return "症状の強さ、食事や水分の取りやすさ、眠りやすさを見ます。";
+}
+
+function buildConsultFallback(text) {
+  if (text.includes("再") || text.includes("相談")) return "よくならない時や不安が強い時は、次の相談先へ連絡します。";
+  return "症状が強くなる、長引く、説明と違う感じがする時は受診先へ相談します。";
+}
+
+function buildDoctorFollowupSummary(text) {
+  const normalized = normalizeDoctorFollowupText(text);
+  const simplifiedSentences = splitJapaneseSentences(simplifyMedicalLanguage(normalized));
+  const actionKeywords = ["飲", "薬", "使", "休", "安静", "水分", "睡眠", "記録", "続け", "控え", "塗", "貼"];
+  const watchKeywords = ["熱", "痛", "息", "苦", "咳", "腫", "むくみ", "しびれ", "ふらつ", "吐", "食べ", "眠れ"];
+  const consultKeywords = ["相談", "受診", "再", "連絡", "救急", "すぐ", "早め", "悪化", "続く", "1週間", "数日"];
+
+  const nowActions = pickSentencesByKeywords(simplifiedSentences, actionKeywords, 3);
+  const watchPoints = pickSentencesByKeywords(simplifiedSentences, watchKeywords, 3);
+  const consultTiming = pickSentencesByKeywords(simplifiedSentences, consultKeywords, 3);
+
+  if (!nowActions.length) nowActions.push(buildActionFallback(simplifyMedicalLanguage(normalized)));
+  if (!watchPoints.length) watchPoints.push(buildWatchFallback(simplifyMedicalLanguage(normalized)));
+  if (!consultTiming.length) consultTiming.push(buildConsultFallback(simplifyMedicalLanguage(normalized)));
+
+  return {
+    input_text: normalized,
+    simple_explanation: buildSimpleExplanation(simplifiedSentences),
+    now_actions: uniqueTexts(nowActions),
+    watch_points: uniqueTexts(watchPoints),
+    consult_timing: uniqueTexts(consultTiming),
+    generated_at: new Date().toISOString(),
+    disclaimer: "診断ではなく、先生の説明を理解しやすくするための整理文です。"
+  };
+}
+
+function fillDoctorFollowupInput(text, statusText = "入力しました") {
+  if (!doctorFollowupInput) return;
+  doctorFollowupInput.value = String(text || "").trim();
+  renderDoctorFollowupResult(null);
+  setDoctorFollowupStatus(statusText);
+  saveDoctorFollowupState({ inputText: doctorFollowupInput.value, result: null });
+}
+
+function doctorFollowupSampleText() {
+  return "炎症がまだあるので、まずは1週間は薬を続けて、水分をしっかり取ってください。痛みが強い時は頓服を使って大丈夫です。熱が上がる、食べられない、息苦しい時は早めに相談してください。1週間くらいで良くならなければ再診しましょう。";
 }
 
 function toNumberOrNull(v) {
@@ -2167,6 +2593,7 @@ async function loadShareLinks() {
 
 function renderDoctorNotes(items) {
   if (!doctorNotesList) return;
+  latestDoctorNotes = Array.isArray(items) ? items.slice() : [];
   doctorNotesList.innerHTML = "";
   if (!items.length) {
     const li = document.createElement("li");
@@ -2521,11 +2948,58 @@ if (reviewEditBtn) {
   });
 }
 
+if (doctorFollowupInput) {
+  doctorFollowupInput.addEventListener("input", () => {
+    renderDoctorFollowupResult(null);
+    setDoctorFollowupStatus(doctorFollowupInput.value.trim() ? "入力を更新しました。もう一度整理できます" : "未整理");
+    saveDoctorFollowupState({ inputText: doctorFollowupInput.value, result: null });
+  });
+}
+
+if (doctorFollowupBtn) {
+  doctorFollowupBtn.addEventListener("click", () => {
+    const text = String(doctorFollowupInput?.value || "").trim();
+    if (!text) {
+      setDoctorFollowupStatus("先生の説明やメモを入力してください");
+      showToast("説明文を入れてから整理してください");
+      return;
+    }
+    const result = buildDoctorFollowupSummary(text);
+    renderDoctorFollowupResult(result);
+    setDoctorFollowupStatus("整理しました");
+    saveDoctorFollowupState({ inputText: text, result });
+    show({ followup_summary: result });
+    showToast("診察後の説明を整理しました");
+  });
+}
+
+if (doctorFollowupUseNoteBtn) {
+  doctorFollowupUseNoteBtn.addEventListener("click", () => {
+    const latest = latestDoctorNotes[0];
+    if (!latest?.note) {
+      setDoctorFollowupStatus("使える医師コメントがまだありません");
+      showToast("先に医師コメントを読み込むか入力してください");
+      return;
+    }
+    fillDoctorFollowupInput(latest.note, "最新の医師コメントを入力しました");
+    showToast("最新の医師コメントを入れました");
+  });
+}
+
+if (doctorFollowupSampleBtn) {
+  doctorFollowupSampleBtn.addEventListener("click", () => {
+    fillDoctorFollowupInput(doctorFollowupSampleText(), "サンプル文を入力しました");
+    showToast("サンプル文を入れました");
+  });
+}
+
 initDatetimeDefault();
 ensureLocalUserId();
+loadDoctorFollowupState();
 loadSettings();
 updateVoiceRouteText();
 syncConsentUiLock();
+initConsultChat();
 refreshOverview().catch(() => {});
 loadProfile().catch(() => {});
 loadLatestConsent().catch((error) => {
@@ -2661,6 +3135,29 @@ if (voiceFileBtn && voiceFileInput) {
 if (!speechSynthesisSupported) {
   speakBtn.disabled = true;
   stopSpeakBtn.disabled = true;
+}
+
+if (consultChatForm) {
+  consultChatForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    await submitConsultChatMessage(consultChatInput?.value || "");
+  });
+}
+
+if (consultChatInput) {
+  consultChatInput.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      consultChatForm?.requestSubmit();
+    }
+  });
+}
+
+for (const btn of consultChatExampleBtns) {
+  btn.addEventListener("click", async () => {
+    const example = String(btn.dataset.chatExample || btn.textContent || "").trim();
+    await submitConsultChatMessage(example);
+  });
 }
 
 speakBtn.addEventListener("click", () => speakText(aiMessage.textContent));

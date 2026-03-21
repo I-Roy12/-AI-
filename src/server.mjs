@@ -11,6 +11,7 @@ import { createDoctorSummaryService } from "./services/doctor-summary-service.mj
 import { createStoreRepository } from "./repositories/store-repository.mjs";
 import { createDoctorAuthService } from "./services/doctor-auth-service.mjs";
 import { auditEventTypes, createAuditLogService } from "./services/audit-log-service.mjs";
+import { createHealthChatService } from "./services/health-chat-service.mjs";
 
 function readBooleanEnv(name, fallback = false) {
   const raw = process.env[name];
@@ -123,6 +124,7 @@ let providerMatchingService;
 let doctorSummaryService;
 let doctorAuthService;
 let auditLogService;
+let healthChatService;
 
 function isProductionLike() {
   return String(process.env.NODE_ENV || "").trim().toLowerCase() === "production";
@@ -166,6 +168,16 @@ async function bootstrapConfig() {
     matchProviders: providerMatchingService.matchProviders,
     average,
     calcAge,
+    defaultDisclaimer: safetyConfig.default_disclaimer
+  });
+  healthChatService = createHealthChatService({
+    symptomConfig,
+    getUserLogs,
+    getProfile: (userId) => storeRepository.getProfile(userId) || {},
+    calcAge,
+    evaluateSafety: safetyService.evaluateSafety,
+    computeTrend,
+    matchProviders: providerMatchingService.matchProviders,
     defaultDisclaimer: safetyConfig.default_disclaimer
   });
   doctorAuthService = createDoctorAuthService({
@@ -1843,6 +1855,16 @@ const server = createServer(async (req, res) => {
       );
       storeRepository.addInsight({ ...payload, user_id: userId, type: "next_step", created_at: new Date().toISOString() });
       await storeRepository.persist();
+      return sendJson(res, 200, payload);
+    }
+
+    if (method === "POST" && (pathname === "/api/v1/chat/health" || pathname === "/api/v1/chat/consult")) {
+      const body = await parseJsonBody(req);
+      const payload = healthChatService.respond({
+        user_id: body.user_id,
+        text: body.text ?? body.message,
+        history: body.history
+      });
       return sendJson(res, 200, payload);
     }
 
