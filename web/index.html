@@ -40,9 +40,9 @@
 
       <div id="record-page">
       <section class="card flow-card">
-        <p><strong>Step 1:</strong> 今日の体調を入力して保存</p>
-        <p><strong>Step 2:</strong> AI要約で状態と傾向を確認</p>
-        <p><strong>Step 3:</strong> 必要なときだけ医師に共有</p>
+        <p><strong>Step 1:</strong> まずはチャットで今の体調を相談</p>
+        <p><strong>Step 2:</strong> 必要なときだけゲージで詳しく記録</p>
+        <p><strong>Step 3:</strong> AI要約を見て、必要なら医師に共有</p>
       </section>
       <section class="card guide-card">
         <p>記録は1分、共有は必要なときだけ。無理のないペースで続けられます。</p>
@@ -56,8 +56,41 @@
         <p id="stats-view">連続記録 0日 / 記録日数 0日 / 総記録 0件</p>
       </section>
 
-      <section class="card">
-        <h2>今日の記録</h2>
+      <section class="card consult-chat-card consult-chat-hero">
+        <h2>体調相談チャット</h2>
+        <p class="sub">
+          まずはここで、気になる症状や不安をそのまま相談できます。診断確定ではなく、状態整理と次の行動の目安づくりを支援します。
+        </p>
+        <div class="consult-chat-examples" aria-label="相談例">
+          <button type="button" class="chat-example-btn" data-chat-example="頭痛とだるさが3日続いています。何を伝えると整理しやすいですか？">頭痛とだるさが3日続いています</button>
+          <button type="button" class="chat-example-btn" data-chat-example="昨日は眠れず、今日は気分もかなり低めです。まず何を確認するとよいですか？">眠れず気分も低いです</button>
+          <button type="button" class="chat-example-btn" data-chat-example="受診するほどか迷っています。受診前に整理しておくとよいことを教えてください。">受診するか迷っています</button>
+        </div>
+        <div id="consult-chat-messages" class="consult-chat-messages" aria-live="polite" aria-label="体調相談チャットログ"></div>
+        <form id="consult-chat-form" class="consult-chat-compose">
+          <label for="consult-chat-input">相談内容</label>
+          <div class="consult-chat-compose-row">
+            <textarea
+              id="consult-chat-input"
+              placeholder="例: 午後になると息苦しさとだるさが増します。まず何を整理すればよいですか？"
+            ></textarea>
+            <button type="submit" id="consult-chat-send-btn">送信</button>
+          </div>
+        </form>
+        <p id="consult-chat-status" class="last-sync">まずは相談例をタップするか、そのまま相談内容を入力してください。</p>
+      </section>
+
+      <section class="card record-entry-card collapsed" id="record-entry-card">
+        <div class="record-entry-head">
+          <div>
+            <h2>ゲージで詳しく記録</h2>
+            <p class="sub">会話だけで足りないときだけ、ゲージやメモを開いて詳しく残せます。</p>
+          </div>
+          <button type="button" id="record-entry-toggle-btn" class="record-entry-toggle-btn" aria-expanded="false" aria-controls="record-entry-body">
+            詳しく記録を開く
+          </button>
+        </div>
+        <div id="record-entry-body" class="record-entry-body hidden">
         <p id="editing-status" class="last-sync">新規記録モード</p>
         <p id="user-scope-status" class="last-sync">この端末の利用者ID: 準備中</p>
         <form id="log-form">
@@ -181,6 +214,7 @@
           </div>
           <button type="submit">この内容で記録する</button>
         </form>
+        </div>
       </section>
 
       <section class="card grid">
@@ -241,30 +275,6 @@
           <label class="tts-auto"><input type="checkbox" id="auto-speak" /> 自動読み上げ</label>
         </div>
         <pre id="output" class="hidden">{}</pre>
-      </section>
-
-      <section class="card consult-chat-card">
-        <h2>体調相談チャット</h2>
-        <p class="sub">
-          気になる症状や不安を、まず短く相談できます。診断確定ではなく、状態整理と次の行動の目安づくりを支援します。
-        </p>
-        <div class="consult-chat-examples" aria-label="相談例">
-          <button type="button" class="chat-example-btn" data-chat-example="頭痛とだるさが3日続いています。何を伝えると整理しやすいですか？">頭痛とだるさが3日続いています</button>
-          <button type="button" class="chat-example-btn" data-chat-example="昨日は眠れず、今日は気分もかなり低めです。まず何を確認するとよいですか？">眠れず気分も低いです</button>
-          <button type="button" class="chat-example-btn" data-chat-example="受診するほどか迷っています。受診前に整理しておくとよいことを教えてください。">受診するか迷っています</button>
-        </div>
-        <div id="consult-chat-messages" class="consult-chat-messages" aria-live="polite" aria-label="体調相談チャットログ"></div>
-        <form id="consult-chat-form" class="consult-chat-compose">
-          <label for="consult-chat-input">相談内容</label>
-          <div class="consult-chat-compose-row">
-            <textarea
-              id="consult-chat-input"
-              placeholder="例: 午後になると息苦しさとだるさが増します。まず何を整理すればよいですか？"
-            ></textarea>
-            <button type="submit" id="consult-chat-send-btn">送信</button>
-          </div>
-        </form>
-        <p id="consult-chat-status" class="last-sync">まずは相談例をタップするか、そのまま相談内容を入力してください。</p>
       </section>
 
       <section class="card">

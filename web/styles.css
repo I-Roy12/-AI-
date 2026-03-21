@@ -492,6 +492,46 @@ pre {
   background: linear-gradient(180deg, #fffdf9, #fff7ee);
 }
 
+.consult-chat-hero {
+  border-color: #efc78d;
+  box-shadow: 0 10px 30px rgba(233, 139, 42, 0.08);
+}
+
+.record-entry-card {
+  background: linear-gradient(180deg, #fffefb, #fff9f2);
+}
+
+.record-entry-card.collapsed {
+  padding-bottom: 14px;
+}
+
+.record-entry-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.record-entry-head h2 {
+  margin: 0;
+}
+
+.record-entry-head .sub {
+  margin: 6px 0 0;
+}
+
+.record-entry-toggle-btn {
+  flex: 0 0 auto;
+  background: #f3e8d6;
+  color: #7f5b34;
+}
+
+.record-entry-body {
+  margin-top: 14px;
+  display: grid;
+  gap: 12px;
+}
+
 .consult-chat-examples {
   display: flex;
   flex-wrap: wrap;
@@ -1266,8 +1306,14 @@ input[type="range"]::-moz-range-thumb {
     grid-template-columns: 1fr;
   }
 
+  .record-entry-head {
+    grid-template-columns: 1fr;
+    display: grid;
+  }
+
   .chat-example-btn,
-  #consult-chat-send-btn {
+  #consult-chat-send-btn,
+  .record-entry-toggle-btn {
     width: 100%;
   }
 

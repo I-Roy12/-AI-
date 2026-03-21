@@ -23,6 +23,9 @@ const reviewDate = document.querySelector("#review-date");
 const reviewBtn = document.querySelector("#review-btn");
 const reviewEditBtn = document.querySelector("#review-edit-btn");
 const reviewView = document.querySelector("#review-view");
+const recordEntryCard = document.querySelector("#record-entry-card");
+const recordEntryBody = document.querySelector("#record-entry-body");
+const recordEntryToggleBtn = document.querySelector("#record-entry-toggle-btn");
 const reservationView = document.querySelector("#reservation-view");
 const locNearbyBtn = document.querySelector("#loc-nearby-btn");
 const locClearBtn = document.querySelector("#loc-clear-btn");
@@ -220,6 +223,15 @@ function showToast(message, timeoutMs = 2000) {
   showToast._timer = setTimeout(() => {
     toast.classList.add("hidden");
   }, timeoutMs);
+}
+
+function setRecordEntryExpanded(expanded) {
+  if (!recordEntryBody || !recordEntryToggleBtn || !recordEntryCard) return;
+  const next = Boolean(expanded);
+  recordEntryBody.classList.toggle("hidden", !next);
+  recordEntryCard.classList.toggle("collapsed", !next);
+  recordEntryToggleBtn.setAttribute("aria-expanded", String(next));
+  recordEntryToggleBtn.textContent = next ? "詳しい記録を閉じる" : "詳しく記録を開く";
 }
 
 function setConsultChatStatus(text) {
@@ -963,6 +975,7 @@ function setEditingStatus(isEditing, text = "") {
   if (!editingStatus) return;
   editingStatus.classList.toggle("is-editing", Boolean(isEditing));
   if (isEditing) {
+    setRecordEntryExpanded(true);
     editingStatus.textContent = text || `編集中: ${editingSourceDate || "-"} の記録`;
     return;
   }
@@ -2999,6 +3012,7 @@ loadDoctorFollowupState();
 loadSettings();
 updateVoiceRouteText();
 syncConsentUiLock();
+setRecordEntryExpanded(false);
 initConsultChat();
 refreshOverview().catch(() => {});
 loadProfile().catch(() => {});
@@ -3141,6 +3155,13 @@ if (consultChatForm) {
   consultChatForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     await submitConsultChatMessage(consultChatInput?.value || "");
+  });
+}
+
+if (recordEntryToggleBtn) {
+  recordEntryToggleBtn.addEventListener("click", () => {
+    const expanded = recordEntryToggleBtn.getAttribute("aria-expanded") === "true";
+    setRecordEntryExpanded(!expanded);
   });
 }
 
