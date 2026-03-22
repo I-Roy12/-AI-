@@ -138,3 +138,18 @@ test("health chat prioritizes current consultation text over old logs", () => {
   assert.deepEqual(result.structured_summary.symptom_candidates.slice(0, 2), ["頭痛", "だるさ"]);
   assert.equal(result.suggested_department.name, "内科");
 });
+
+test("health chat returns record draft hints for form autofill", () => {
+  const service = createService();
+  const result = service.respond({
+    user_id: "u_999",
+    text: "頭痛がつらくて、昨日は3時間しか眠れませんでした",
+    history: []
+  });
+
+  assert.deepEqual(result.record_draft.symptoms, ["頭痛"]);
+  assert.equal(result.record_draft.symptom_score, 6);
+  assert.equal(result.record_draft.sleep_hours, 3);
+  assert.equal(result.record_draft.sleep_quality_score, 3);
+  assert.match(result.record_draft.note_draft, /チャット相談メモ/);
+});

@@ -36,6 +36,10 @@ function truncate(text, maxLength = 120) {
   return `${value.slice(0, Math.max(0, maxLength - 1))}…`;
 }
 
+function includesAny(text, keywords) {
+  return keywords.some((keyword) => text.includes(keyword));
+}
+
 function summarizeTimeline(latestLog, trend) {
   if (!latestLog) return "記録履歴はまだ少なく、今回の相談文が中心です。";
   const date = String(latestLog.recorded_at || "").slice(0, 10) || "直近";
@@ -77,6 +81,69 @@ function summarizeConcern(text, symptomCandidates) {
     return `${symptomCandidates.join("・")}について相談。自由記述: ${truncate(text, 90)}`;
   }
   return truncate(text, 110);
+}
+
+function detectSleepHours(text) {
+  const match = String(text || "").match(/(\d+(?:\.\d+)?)\s*時間(?=(?:半)?(?:しか)?(?:眠れ|寝|睡眠|休))/);
+  if (!match) return null;
+  const hours = Number(match[1]);
+  if (!Number.isFinite(hours)) return null;
+  return Math.max(0, Math.min(24, Math.round(hours * 2) / 2));
+}
+
+function inferSymptomScore(text, symptomCandidates, latestLog) {
+  if (includesAny(text, ["救急", "息苦", "激しい", "強い痛み", "かなりつらい", "動けない"])) return 8;
+  if (includesAny(text, ["つら", "しんど", "だる", "痛い"])) return 6;
+  if (includesAny(text, ["落ち着いている", "平気", "元気", "ラク"])) return 2;
+  if (symptomCandidates.length) {
+    const latest = Number(latestLog?.symptom_score);
+    return Number.isFinite(latest) ? latest : 4;
+  }
+  return null;
+}
+
+function inferMoodScore(text, latestLog) {
+  if (includesAny(text, ["かなり落ち込", "消えたい", "不安が強い", "気分がかなり低い"])) return 2;
+  if (includesAny(text, ["落ち込", "不安", "気分が低い", "しんどい"])) return 3;
+  if (includesAny(text, ["落ち着いている", "元気", "気分が良い", "調子が良い"])) return 8;
+  const latest = Number(latestLog?.mood_score);
+  return Number.isFinite(latest) ? latest : null;
+}
+
+function inferSleepQualityScore(text, sleepHours, latestLog) {
+  if (includesAny(text, ["眠れない", "寝つけない", "何度も起き", "中途覚醒", "眠りが浅い"])) return 3;
+  if (includesAny(text, ["ぐっすり", "しっかり眠れた", "よく眠れた"])) return 8;
+  if (Number.isFinite(sleepHours)) {
+    if (sleepHours <= 4) return 3;
+    if (sleepHours >= 7) return 7;
+  }
+  const latest = Number(latestLog?.sleep_quality_score);
+  return Number.isFinite(latest) ? latest : null;
+}
+
+function buildRecordDraft({ text, symptomCandidates, latestLog, urgencyHint }) {
+  const sleepHours = detectSleepHours(text);
+  const symptomScore = inferSymptomScore(text, symptomCandidates, latestLog);
+  const moodScore = inferMoodScore(text, latestLog);
+  const sleepQualityScore = inferSleepQualityScore(text, sleepHours, latestLog);
+  const noteDraft = `チャット相談メモ: ${truncate(text, 140)}`;
+
+  return {
+    symptoms: symptomCandidates,
+    symptom_score: symptomScore,
+    mood_score: moodScore,
+    sleep_hours: sleepHours,
+    sleep_quality_score: sleepQualityScore,
+    note_draft: noteDraft,
+    should_open_detail: Boolean(
+      symptomCandidates.length ||
+        Number.isFinite(symptomScore) ||
+        Number.isFinite(moodScore) ||
+        Number.isFinite(sleepHours) ||
+        Number.isFinite(sleepQualityScore) ||
+        urgencyHint.level !== "low"
+    )
+  };
 }
 
 function mapUrgency(safetyResult) {
@@ -220,6 +287,12 @@ export function createHealthChatService({
       reason: buildDepartmentReason(category, suggestedDepartmentName, symptomCandidates, providerCandidates),
       alternatives: departments.slice(1, 3)
     };
+    const recordDraft = buildRecordDraft({
+      text: combinedText || text,
+      symptomCandidates,
+      latestLog,
+      urgencyHint
+    });
 
     const structuredSummary = {
       format_version: "health_chat_summary_v1",
@@ -252,7 +325,8 @@ export function createHealthChatService({
         `直近文脈: ${summarizeTimeline(latestLog, trend)}`
       ]
         .filter(Boolean)
-        .join(" / ")
+        .join(" / "),
+      record_draft: recordDraft
     };
 
     const reply = buildReply({
@@ -268,6 +342,7 @@ export function createHealthChatService({
     return {
       reply,
       structured_summary: structuredSummary,
+      record_draft: recordDraft,
       suggested_department: suggestedDepartment,
       urgency_hint: {
         ...urgencyHint,

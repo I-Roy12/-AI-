@@ -145,6 +145,7 @@ let consentVersionRequired = "consent_v1";
 let consentFetchSeq = 0;
 let consultChatSeq = 0;
 let consultChatHistory = [];
+let consultChatDraftSignature = "";
 let latestDoctorNotes = [];
 
 const sliderMeta = {
@@ -469,6 +470,113 @@ function buildConsultChatFallbackReply(message) {
   return lines.join(" ");
 }
 
+function buildConsultChatFallbackDraft(message) {
+  const text = String(message || "").trim();
+  const lowered = text.replace(/\s+/g, "");
+  const symptoms = [];
+
+  for (const chip of symptomChips) {
+    const token = String(chip.getAttribute("data-symptom") || "").trim();
+    if (token && text.includes(token)) symptoms.push(token);
+  }
+
+  const sleepHoursMatch = lowered.match(/(\d+(?:\.\d+)?)時間(?=(?:半)?(?:しか)?(?:眠れ|寝|睡眠|休))/);
+  const sleepHours = sleepHoursMatch ? normalizeSleepHours(sleepHoursMatch[1], 0) : null;
+
+  let symptomScore = null;
+  if (/救急|息苦|激しい|強い痛み|かなりつらい|動けない/.test(text)) symptomScore = 8;
+  else if (/つらい|しんどい|だるい|痛い/.test(text)) symptomScore = 6;
+  else if (/落ち着いている|平気|元気|ラク/.test(text)) symptomScore = 2;
+
+  let moodScore = null;
+  if (/かなり落ち込|消えたい|不安が強い|気分がかなり低い/.test(text)) moodScore = 2;
+  else if (/落ち込|不安|気分が低い/.test(text)) moodScore = 3;
+  else if (/落ち着いている|元気|気分が良い|調子が良い/.test(text)) moodScore = 8;
+
+  let sleepQualityScore = null;
+  if (/眠れない|寝つけない|何度も起き|中途覚醒|眠りが浅い/.test(text)) sleepQualityScore = 3;
+  else if (/ぐっすり|しっかり眠れた|よく眠れた/.test(text)) sleepQualityScore = 8;
+  else if (sleepHours !== null) sleepQualityScore = sleepHours <= 4 ? 3 : sleepHours >= 7 ? 7 : null;
+
+  return {
+    symptoms,
+    symptom_score: symptomScore,
+    mood_score: moodScore,
+    sleep_hours: sleepHours,
+    sleep_quality_score: sleepQualityScore,
+    note_draft: `チャット相談メモ: ${text}`,
+    should_open_detail: Boolean(symptoms.length || symptomScore !== null || moodScore !== null || sleepHours !== null || sleepQualityScore !== null)
+  };
+}
+
+function appendDraftNote(noteDraft) {
+  const noteInput = form.querySelector("[name=note]");
+  const next = String(noteDraft || "").trim();
+  if (!noteInput || !next) return false;
+  const current = String(noteInput.value || "").trim();
+  if (current.includes(next)) return false;
+  noteInput.value = current ? `${current}\n${next}` : next;
+  setDraftNoteStatus("チャット相談からメモ下書きを反映しました");
+  return true;
+}
+
+function applyConsultChatRecordDraft(draft) {
+  if (!draft || typeof draft !== "object") return false;
+  const normalizedDraft = {
+    symptoms: Array.isArray(draft.symptoms) ? draft.symptoms.map((item) => String(item || "").trim()).filter(Boolean) : [],
+    symptom_score: Number.isFinite(Number(draft.symptom_score)) ? normalizeScore(draft.symptom_score, 0) : null,
+    mood_score: Number.isFinite(Number(draft.mood_score)) ? normalizeScore(draft.mood_score, 0) : null,
+    sleep_hours: Number.isFinite(Number(draft.sleep_hours)) ? normalizeSleepHours(draft.sleep_hours, 0) : null,
+    sleep_quality_score: Number.isFinite(Number(draft.sleep_quality_score)) ? normalizeScore(draft.sleep_quality_score, 0) : null,
+    note_draft: String(draft.note_draft || "").trim(),
+    should_open_detail: Boolean(draft.should_open_detail)
+  };
+
+  const signature = JSON.stringify(normalizedDraft);
+  if (signature === consultChatDraftSignature) return false;
+  consultChatDraftSignature = signature;
+
+  let changed = false;
+  for (const symptom of normalizedDraft.symptoms) {
+    const before = String(getSymptomsInput()?.value || "");
+    addSymptom(symptom);
+    if (String(getSymptomsInput()?.value || "") !== before) changed = true;
+  }
+
+  const currentSymptomScore = normalizeScore(form.querySelector("[name=symptom_score]")?.value, 0);
+  if (normalizedDraft.symptom_score !== null && currentSymptomScore === 0) {
+    setRangeValue("symptom_score", normalizedDraft.symptom_score);
+    changed = true;
+  }
+
+  const currentMoodScore = normalizeScore(form.querySelector("[name=mood_score]")?.value, 0);
+  if (normalizedDraft.mood_score !== null && currentMoodScore === 0) {
+    setRangeValue("mood_score", normalizedDraft.mood_score);
+    changed = true;
+  }
+
+  const currentSleepHours = normalizeSleepHours(form.querySelector("[name=sleep_hours]")?.value, 0);
+  if (normalizedDraft.sleep_hours !== null && currentSleepHours === 0) {
+    setSleepHours(normalizedDraft.sleep_hours);
+    changed = true;
+  }
+
+  const currentSleepQualityScore = normalizeScore(form.querySelector("[name=sleep_quality_score]")?.value, 0);
+  if (normalizedDraft.sleep_quality_score !== null && currentSleepQualityScore === 0) {
+    setRangeValue("sleep_quality_score", normalizedDraft.sleep_quality_score);
+    changed = true;
+  }
+
+  if (appendDraftNote(normalizedDraft.note_draft)) changed = true;
+
+  if (changed) {
+    setConsultChatExampleButtons(buildConsultChatExamples());
+    if (normalizedDraft.should_open_detail) setRecordEntryExpanded(true);
+  }
+
+  return changed;
+}
+
 async function requestConsultChatReply(message) {
   const payload = {
     user_id: getUserId(),
@@ -501,18 +609,24 @@ async function requestConsultChatReply(message) {
         reply: String(reply).trim(),
         mode: "api",
         suggestedDepartment: String(data?.suggested_department?.name || "").trim(),
-        urgencyLevel: String(data?.urgency_hint?.level || "").trim()
+        urgencyLevel: String(data?.urgency_hint?.level || "").trim(),
+        recordDraft: data?.record_draft || data?.structured_summary?.record_draft || null
       };
     }
   } catch (error) {
     const status = Number(error?.status || 0);
     return {
       reply: buildConsultChatFallbackReply(message),
-      mode: status === 404 ? "fallback_missing" : "fallback_error"
+      mode: status === 404 ? "fallback_missing" : "fallback_error",
+      recordDraft: buildConsultChatFallbackDraft(message)
     };
   }
 
-  return { reply: buildConsultChatFallbackReply(message), mode: "fallback_empty" };
+  return {
+    reply: buildConsultChatFallbackReply(message),
+    mode: "fallback_empty",
+    recordDraft: buildConsultChatFallbackDraft(message)
+  };
 }
 
 async function submitConsultChatMessage(rawText) {
@@ -536,14 +650,21 @@ async function submitConsultChatMessage(rawText) {
   try {
     const result = await requestConsultChatReply(text);
     updateConsultChatMessage(pendingId, { text: result.reply, pending: false });
+    const draftApplied = applyConsultChatRecordDraft(result.recordDraft);
     if (result.mode === "api") {
       const details = [result.suggestedDepartment ? `相談先候補: ${result.suggestedDepartment}` : "", result.urgencyLevel ? `緊急度目安: ${result.urgencyLevel}` : ""]
         .filter(Boolean)
         .join(" / ");
-      setConsultChatStatus(details ? `AIが返答しました。${details}` : "AIが返答しました。続けて相談できます。");
+      const message = details ? `AIが返答しました。${details}` : "AIが返答しました。続けて相談できます。";
+      setConsultChatStatus(draftApplied ? `${message} 記録にも下書きを反映しました。` : message);
     } else {
-      setConsultChatStatus("チャットAPI準備中のため、画面内の簡易返答で案内しています。");
+      setConsultChatStatus(
+        draftApplied
+          ? "チャットAPI準備中のため、画面内の簡易返答で案内しています。記録にも下書きを反映しました。"
+          : "チャットAPI準備中のため、画面内の簡易返答で案内しています。"
+      );
     }
+    if (draftApplied) showToast("チャット内容を記録の下書きに反映しました");
   } finally {
     setConsultChatBusy(false);
     if (consultChatInput) consultChatInput.focus();
@@ -2186,6 +2307,7 @@ function resetFormInputs() {
   }
   if (symptomsInput) symptomsInput.value = "";
   if (note) note.value = "";
+  consultChatDraftSignature = "";
   setDraftNoteStatus();
   if (sleepStartTimeInput) sleepStartTimeInput.value = "";
   if (sleepEndTimeInput) sleepEndTimeInput.value = "";
