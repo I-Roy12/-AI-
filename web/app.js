@@ -240,6 +240,122 @@ function setConsultChatStatus(text) {
   }
 }
 
+function setConsultChatExampleButtons(items) {
+  const safeItems = Array.isArray(items) ? items.slice(0, consultChatExampleBtns.length) : [];
+  consultChatExampleBtns.forEach((btn, idx) => {
+    const item = safeItems[idx];
+    if (!item) return;
+    btn.textContent = item.label;
+    btn.dataset.chatExample = item.prompt;
+  });
+}
+
+function buildConsultChatExamples() {
+  const context = getConsultChatContext();
+  const symptoms = context.symptoms;
+  const symptomLabel = symptoms.length ? symptoms.slice(0, 2).join("と") : "体調";
+
+  if (context.symptom_score >= 7) {
+    return [
+      {
+        label: `${symptomLabel}がつらいです`,
+        prompt: `${symptomLabel}がつらめです。今の状態だと何を優先して伝えるとよいですか？`
+      },
+      {
+        label: "早めに受診した方がいい？",
+        prompt: `つらさが強めです。早めに受診した方がよいか、確認するポイントを教えてください。`
+      },
+      {
+        label: "どこの病院が合いそう？",
+        prompt: `${symptomLabel}がある時、どの診療科や病院候補が合いそうですか？`
+      }
+    ];
+  }
+
+  if (context.mood_score <= 3) {
+    return [
+      {
+        label: "気分がかなり低いです",
+        prompt: "気分がかなり低いです。まず何を整理すると相談しやすいですか？"
+      },
+      {
+        label: "心療内科に行く目安は？",
+        prompt: "気分の落ち込みが続いています。心療内科などに相談する目安を教えてください。"
+      },
+      {
+        label: "今日は何を減らせばいい？",
+        prompt: "無理しすぎないために、今日は何を減らすとよさそうか整理してください。"
+      }
+    ];
+  }
+
+  if (context.sleep_hours <= 4 || context.sleep_quality_score <= 3) {
+    return [
+      {
+        label: "あまり眠れていません",
+        prompt: "あまり眠れていません。受診前に何を整理すると伝えやすいですか？"
+      },
+      {
+        label: "睡眠の相談は何科？",
+        prompt: "睡眠の不調が続く時は、何科に相談するとよいですか？"
+      },
+      {
+        label: "今日気をつけることは？",
+        prompt: "眠れていない日の過ごし方で、今日気をつけることを教えてください。"
+      }
+    ];
+  }
+
+  if (context.symptom_score <= 2 && context.mood_score >= 7 && context.sleep_quality_score >= 7) {
+    return [
+      {
+        label: "今日は落ち着いています",
+        prompt: "今日は比較的落ち着いています。この良い流れを続けるコツを教えてください。"
+      },
+      {
+        label: "良い点を先生向けに整理したい",
+        prompt: "最近よかった点を、先生向けに短く整理するとどうなりますか？"
+      },
+      {
+        label: "今の状態を維持したい",
+        prompt: "今の状態を維持するために、意識するとよいことを教えてください。"
+      }
+    ];
+  }
+
+  if (!symptoms.length && context.summary === "まだありません") {
+    return [
+      {
+        label: "何から話せばいい？",
+        prompt: "体調相談を始めたいです。最初に何から話せば整理しやすいですか？"
+      },
+      {
+        label: "まず伝える項目は？",
+        prompt: "受診前に、まず伝えるとよい項目を教えてください。"
+      },
+      {
+        label: "体調相談を始めたいです",
+        prompt: "体調相談を始めたいです。今の状態をどう整理するとよいですか？"
+      }
+    ];
+  }
+
+  return [
+    {
+      label: `${symptomLabel}について整理したい`,
+      prompt: `${symptomLabel}について相談したいです。受診前に整理するとよいことを教えてください。`
+    },
+    {
+      label: "どんな記録が役立つ？",
+      prompt: "今の体調では、どんな記録を残しておくと次の相談に役立ちますか？"
+    },
+    {
+      label: "病院に行く目安は？",
+      prompt: "今の症状で病院に行く目安や、相談先の考え方を教えてください。"
+    }
+  ];
+}
+
 function scrollConsultChatToBottom() {
   if (!consultChatMessages) return;
   consultChatMessages.scrollTop = consultChatMessages.scrollHeight;
@@ -437,6 +553,7 @@ async function submitConsultChatMessage(rawText) {
 function initConsultChat() {
   if (!consultChatMessages) return;
   consultChatHistory = [];
+  setConsultChatExampleButtons(buildConsultChatExamples());
   appendConsultChatMessage(
     "assistant",
     "体調の不安を短く相談できます。症状、いつからか、いちばん困っていることを1つずつ書いてください。強い症状がある場合は受診を優先してください。"
@@ -1511,6 +1628,7 @@ async function refreshOverview() {
       chartStatus.textContent = `グラフ更新エラー: ${extractErrorMessage(error)}`;
     }
   }
+  setConsultChatExampleButtons(buildConsultChatExamples());
   stampSync();
 }
 
@@ -2079,6 +2197,7 @@ function resetFormInputs() {
   const medicationInput = form.querySelector("[name=medication_status]");
   if (medicationInput) medicationInput.value = "none";
   for (const chip of symptomChips) chip.classList.remove("active");
+  setConsultChatExampleButtons(buildConsultChatExamples());
   if (logImageInput) logImageInput.value = "";
   setImageUiState({ dataUrl: "", name: "", status: "未添付" });
   setSafeText(voiceStatus, "入力をリセットしました。");
