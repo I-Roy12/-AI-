@@ -39,21 +39,14 @@
       </section>
 
       <div id="record-page">
-      <section class="card flow-card">
-        <p><strong>Step 1:</strong> まずはチャットで今の体調を相談</p>
-        <p><strong>Step 2:</strong> 必要なときだけゲージで詳しく記録</p>
-        <p><strong>Step 3:</strong> AI要約を見て、必要なら医師に共有</p>
-      </section>
-      <section class="card guide-card">
-        <p>記録は1分、共有は必要なときだけ。無理のないペースで続けられます。</p>
+      <section class="card simple-home-card">
+        <p class="simple-home-lead">まずは相談して、必要な時だけ詳しく記録します。</p>
         <p id="today-status" class="today-status">今日の記録: 未完了</p>
+        <p id="stats-view" class="simple-home-stats">連続記録 0日 / 記録日数 0日 / 総記録 0件</p>
         <div class="review-row">
           <button id="refresh-btn">最新状態に更新</button>
           <p id="last-sync" class="last-sync">最終更新: -</p>
         </div>
-      </section>
-      <section class="card stats-card">
-        <p id="stats-view">連続記録 0日 / 記録日数 0日 / 総記録 0件</p>
       </section>
 
       <section class="card consult-chat-card consult-chat-hero">
@@ -221,24 +214,15 @@
         </div>
       </section>
 
-      <section class="card grid">
-        <button id="insight-refresh-btn">AI要約を更新</button>
-        <button id="match-btn">相談先候補を表示</button>
-      </section>
-
-      <section class="card">
-        <h2>受診予約サポート</h2>
-        <p class="sub">相談先候補を表示すると、予約導線（Web/電話）がここに出ます。</p>
-        <div class="review-row">
-          <button type="button" id="loc-nearby-btn">現在地で近い順にする</button>
-          <button type="button" id="loc-clear-btn">位置情報を使わない</button>
-          <p id="loc-status" class="last-sync">位置情報: 未使用</p>
+      <section class="card result-card">
+        <div class="result-head">
+          <div>
+            <h2>相談の整理結果</h2>
+            <p class="sub">AIが今の状態を短く整理します。必要ならここから共有や相談先確認に進めます。</p>
+          </div>
+          <button id="insight-refresh-btn">整理結果を更新</button>
         </div>
-        <p class="sub">位置情報は候補並び替えにのみ利用し、サーバー保存しません。</p>
-        <div id="reservation-view" class="reservation-view">まだ候補はありません。「相談先候補を表示」を押してください。</div>
-      </section>
-
-      <section class="card grid insight-grid">
+        <div class="grid insight-grid">
         <article>
           <h3>今日のまとめ</h3>
           <p class="insight-note">ここが日次サマリーです。今日の記録をAIが短くまとめます。</p>
@@ -253,16 +237,29 @@
           <h3>次の一歩</h3>
           <p id="next-step-view">まだありません</p>
         </article>
-      </section>
-      <section class="card">
-        <h2>共有メモ</h2>
-        <p class="sub">受診時に伝える内容を短くまとめてコピーできます。</p>
+        </div>
         <div class="review-row">
           <button id="copy-share-btn">共有メモをコピー</button>
+          <button id="match-btn">相談先候補を表示</button>
           <p id="copy-status" class="last-sync">未コピー</p>
         </div>
       </section>
 
+      <section class="card">
+        <h2>必要なら相談先を見る</h2>
+        <p class="sub">相談先候補を表示すると、予約導線（Web/電話）がここに出ます。</p>
+        <div class="review-row">
+          <button type="button" id="loc-nearby-btn">現在地で近い順にする</button>
+          <button type="button" id="loc-clear-btn">位置情報を使わない</button>
+          <p id="loc-status" class="last-sync">位置情報: 未使用</p>
+        </div>
+        <p class="sub">位置情報は候補並び替えにのみ利用し、サーバー保存しません。</p>
+        <div id="reservation-view" class="reservation-view">まだ候補はありません。「相談先候補を表示」を押してください。</div>
+      </section>
+
+      <details class="card extra-tools-card">
+        <summary>その他の機能を見る</summary>
+        <div class="extra-tools-body">
       <section class="card">
         <h2>気になる文の安全チェック</h2>
         <textarea id="safety-text" placeholder="不安な症状や気になる文を入力"></textarea>
@@ -287,6 +284,8 @@
           <li>まだ記録はありません</li>
         </ul>
       </section>
+        </div>
+      </details>
       </div>
 
       <div id="mypage-page" class="hidden">

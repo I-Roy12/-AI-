@@ -113,6 +113,22 @@ h1 {
   font-size: 14px;
 }
 
+.simple-home-card {
+  background: linear-gradient(180deg, #fffefb 0%, #fff7ee 100%);
+}
+
+.simple-home-lead {
+  margin: 0 0 10px;
+  font-weight: 700;
+  color: #6c5140;
+}
+
+.simple-home-stats {
+  margin: 0 0 12px;
+  color: #8a6441;
+  font-weight: 600;
+}
+
 .tab-card {
   background: #fffdf9;
 }
@@ -214,6 +230,22 @@ textarea {
 
 .insight-grid {
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.result-card {
+  display: grid;
+  gap: 14px;
+}
+
+.result-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.result-head h2 {
+  margin: 0;
 }
 
 .insight-grid article {
@@ -550,6 +582,22 @@ pre {
   background: #fff7eb;
   color: #965d22;
   border: 1px solid #efc89b;
+}
+
+.extra-tools-card summary {
+  cursor: pointer;
+  font-weight: 700;
+  color: #7a5737;
+}
+
+.extra-tools-body {
+  margin-top: 14px;
+  display: grid;
+  gap: 14px;
+}
+
+.extra-tools-body .card {
+  margin: 0;
 }
 
 .chat-example-btn {
@@ -1347,6 +1395,10 @@ input[type="range"]::-moz-range-thumb {
   .grid,
   .insight-grid {
     grid-template-columns: 1fr;
+  }
+
+  .result-head {
+    flex-direction: column;
   }
 
   .voice-box .review-row {
