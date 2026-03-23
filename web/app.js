@@ -18,6 +18,8 @@ const consultChatForm = document.querySelector("#consult-chat-form");
 const consultChatInput = document.querySelector("#consult-chat-input");
 const consultChatSendBtn = document.querySelector("#consult-chat-send-btn");
 const consultChatStatus = document.querySelector("#consult-chat-status");
+const consultChatShareBtn = document.querySelector("#consult-chat-share-btn");
+const consultChatMatchBtn = document.querySelector("#consult-chat-match-btn");
 const consultChatExampleBtns = document.querySelectorAll(".chat-example-btn");
 const reviewDate = document.querySelector("#review-date");
 const reviewBtn = document.querySelector("#review-btn");
@@ -146,6 +148,7 @@ let consentFetchSeq = 0;
 let consultChatSeq = 0;
 let consultChatHistory = [];
 let consultChatDraftSignature = "";
+let latestConsultChatResult = null;
 let latestDoctorNotes = [];
 
 const sliderMeta = {
@@ -410,6 +413,8 @@ function updateConsultChatMessage(messageId, patch = {}) {
 function setConsultChatBusy(busy) {
   if (consultChatInput) consultChatInput.disabled = busy;
   if (consultChatSendBtn) consultChatSendBtn.disabled = busy;
+  if (consultChatShareBtn) consultChatShareBtn.disabled = busy;
+  if (consultChatMatchBtn) consultChatMatchBtn.disabled = busy;
   for (const btn of consultChatExampleBtns) {
     btn.disabled = busy;
   }
@@ -507,6 +512,73 @@ function buildConsultChatFallbackDraft(message) {
     note_draft: `チャット相談メモ: ${text}`,
     should_open_detail: Boolean(symptoms.length || symptomScore !== null || moodScore !== null || sleepHours !== null || sleepQualityScore !== null)
   };
+}
+
+function buildConsultChatShareText() {
+  const result = latestConsultChatResult;
+  const summary = result?.structuredSummary || {};
+  const department = result?.suggestedDepartment || "";
+  const urgencyLevel = result?.urgencyLevel || "";
+  const symptoms = Array.isArray(summary?.symptom_candidates) && summary.symptom_candidates.length
+    ? summary.symptom_candidates.join("・")
+    : formatSymptomsDisplay(
+        String(getSymptomsInput()?.value || "")
+          .split(",")
+          .map((item) => item.trim())
+          .filter(Boolean)
+      );
+  const concern = String(summary?.chief_concern || consultChatHistory.filter((item) => item.role === "user").slice(-1)[0]?.text || "").trim() || "-";
+  const doctorShare = String(summary?.doctor_share_summary || "").trim();
+
+  return [
+    "【体調相談チャット共有メモ】",
+    `ユーザーID: ${getUserId()}`,
+    `記録日: ${getRecordedDate()}`,
+    `相談内容: ${concern}`,
+    `症状候補: ${symptoms || "症状なし"}`,
+    `相談先候補: ${department || "未整理"}`,
+    `緊急度目安: ${urgencyLevel || "low"}`,
+    doctorShare ? `先生向け要点: ${doctorShare}` : null
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+async function copyTextToClipboard(text, statusEl = null) {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(text);
+    if (statusEl) statusEl.textContent = "コピーしました";
+    return;
+  }
+  const area = document.createElement("textarea");
+  area.value = text;
+  document.body.append(area);
+  area.select();
+  document.execCommand("copy");
+  area.remove();
+  if (statusEl) statusEl.textContent = "コピーしました";
+}
+
+async function copyConsultChatShareText() {
+  if (!latestConsultChatResult) {
+    setConsultChatStatus("先にチャットで相談すると、この相談内容から共有メモを作れます。");
+    showToast("先にチャットで相談してください");
+    return false;
+  }
+  await copyTextToClipboard(buildConsultChatShareText(), copyStatus);
+  return true;
+}
+
+async function showConsultChatMatches() {
+  if (!latestConsultChatResult) {
+    setConsultChatStatus("先にチャットで相談すると、この相談内容から相談先候補を出しやすくなります。");
+    showToast("先にチャットで相談してください");
+    return false;
+  }
+  const data = await loadMatch();
+  renderReservationCandidates(data);
+  setConsultChatStatus("チャット内容をもとに、相談先候補を下に表示しました。");
+  return true;
 }
 
 function appendDraftNote(noteDraft) {
@@ -610,7 +682,9 @@ async function requestConsultChatReply(message) {
         mode: "api",
         suggestedDepartment: String(data?.suggested_department?.name || "").trim(),
         urgencyLevel: String(data?.urgency_hint?.level || "").trim(),
-        recordDraft: data?.record_draft || data?.structured_summary?.record_draft || null
+        recordDraft: data?.record_draft || data?.structured_summary?.record_draft || null,
+        structuredSummary: data?.structured_summary || null,
+        suggestedProviders: Array.isArray(data?.suggested_providers) ? data.suggested_providers : []
       };
     }
   } catch (error) {
@@ -618,14 +692,18 @@ async function requestConsultChatReply(message) {
     return {
       reply: buildConsultChatFallbackReply(message),
       mode: status === 404 ? "fallback_missing" : "fallback_error",
-      recordDraft: buildConsultChatFallbackDraft(message)
+      recordDraft: buildConsultChatFallbackDraft(message),
+      structuredSummary: null,
+      suggestedProviders: []
     };
   }
 
   return {
     reply: buildConsultChatFallbackReply(message),
     mode: "fallback_empty",
-    recordDraft: buildConsultChatFallbackDraft(message)
+    recordDraft: buildConsultChatFallbackDraft(message),
+    structuredSummary: null,
+    suggestedProviders: []
   };
 }
 
@@ -649,6 +727,7 @@ async function submitConsultChatMessage(rawText) {
 
   try {
     const result = await requestConsultChatReply(text);
+    latestConsultChatResult = result;
     updateConsultChatMessage(pendingId, { text: result.reply, pending: false });
     const draftApplied = applyConsultChatRecordDraft(result.recordDraft);
     if (result.mode === "api") {
@@ -674,6 +753,7 @@ async function submitConsultChatMessage(rawText) {
 function initConsultChat() {
   if (!consultChatMessages) return;
   consultChatHistory = [];
+  latestConsultChatResult = null;
   setConsultChatExampleButtons(buildConsultChatExamples());
   appendConsultChatMessage(
     "assistant",
@@ -2549,18 +2629,7 @@ function buildShareText() {
 
 async function copyShareText() {
   const text = buildShareText();
-  if (navigator.clipboard?.writeText) {
-    await navigator.clipboard.writeText(text);
-    copyStatus.textContent = "コピーしました";
-    return;
-  }
-  const area = document.createElement("textarea");
-  area.value = text;
-  document.body.append(area);
-  area.select();
-  document.execCommand("copy");
-  area.remove();
-  copyStatus.textContent = "コピーしました";
+  await copyTextToClipboard(text, copyStatus);
 }
 
 async function exportUserData() {
@@ -3584,6 +3653,40 @@ copyShareBtn.addEventListener("click", async () => {
     copyShareBtn.textContent = before;
   }
 });
+
+if (consultChatShareBtn) {
+  consultChatShareBtn.addEventListener("click", async () => {
+    consultChatShareBtn.disabled = true;
+    const before = consultChatShareBtn.textContent;
+    consultChatShareBtn.textContent = "作成中...";
+    try {
+      const copied = await copyConsultChatShareText();
+      if (copied) showToast("チャット共有メモをコピーしました");
+    } catch (error) {
+      reportError("チャット共有メモ作成エラー", error, consultChatStatus);
+    } finally {
+      consultChatShareBtn.disabled = false;
+      consultChatShareBtn.textContent = before;
+    }
+  });
+}
+
+if (consultChatMatchBtn) {
+  consultChatMatchBtn.addEventListener("click", async () => {
+    consultChatMatchBtn.disabled = true;
+    const before = consultChatMatchBtn.textContent;
+    consultChatMatchBtn.textContent = "表示中...";
+    try {
+      const shown = await showConsultChatMatches();
+      if (shown) showToast("相談先候補を更新しました");
+    } catch (error) {
+      reportError("相談先候補表示エラー", error, consultChatStatus);
+    } finally {
+      consultChatMatchBtn.disabled = false;
+      consultChatMatchBtn.textContent = before;
+    }
+  });
+}
 
 profileForm.addEventListener("input", () => {
   const profile = {

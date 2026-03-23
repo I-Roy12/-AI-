@@ -539,6 +539,19 @@ pre {
   margin-top: 12px;
 }
 
+.consult-chat-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.consult-chat-actions button {
+  background: #fff7eb;
+  color: #965d22;
+  border: 1px solid #efc89b;
+}
+
 .chat-example-btn {
   background: #fff7eb;
   color: #965d22;
