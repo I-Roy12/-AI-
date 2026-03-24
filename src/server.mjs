@@ -10,6 +10,7 @@ import { createProviderMatchingService } from "./services/provider-matching-serv
 import { createDoctorSummaryService } from "./services/doctor-summary-service.mjs";
 import { createStoreRepository } from "./repositories/store-repository.mjs";
 import { createDoctorAuthService } from "./services/doctor-auth-service.mjs";
+import { createPatientAuthService } from "./services/patient-auth-service.mjs";
 import { auditEventTypes, createAuditLogService } from "./services/audit-log-service.mjs";
 import { createHealthChatService } from "./services/health-chat-service.mjs";
 
@@ -33,12 +34,15 @@ const DATA_STORE_PATH = process.env.DATA_STORE_PATH
   : path.join(DATA_DIR, "store.json");
 const UPLOAD_DIR = process.env.UPLOAD_DIR ? path.resolve(process.env.UPLOAD_DIR) : path.join(DATA_DIR, "uploads");
 const DOCTOR_SESSION_COOKIE = "doctor_session";
+const PATIENT_SESSION_COOKIE = "patient_session";
 const DOCTOR_SESSION_HOURS = 12;
+const PATIENT_SESSION_HOURS = Number(process.env.PATIENT_SESSION_HOURS || 24 * 30);
 const DEFAULT_DOCTOR_DEMO_EMAIL = "doctor@example.com";
 const DEFAULT_DOCTOR_DEMO_PASSWORD = "doctor1234";
 const DOCTOR_DEMO_EMAIL = process.env.DOCTOR_DEMO_EMAIL || DEFAULT_DOCTOR_DEMO_EMAIL;
 const DOCTOR_DEMO_PASSWORD = process.env.DOCTOR_DEMO_PASSWORD || DEFAULT_DOCTOR_DEMO_PASSWORD;
 const DOCTOR_COOKIE_SECURE = readBooleanEnv("DOCTOR_COOKIE_SECURE", process.env.NODE_ENV === "production");
+const PATIENT_COOKIE_SECURE = readBooleanEnv("PATIENT_COOKIE_SECURE", process.env.NODE_ENV === "production");
 const STRICT_PROD_DOCTOR_CRED_GUARD = readBooleanEnv("STRICT_PROD_DOCTOR_CRED_GUARD", false);
 const CONSENT_VERSION = String(process.env.CONSENT_VERSION || "consent_v1").trim() || "consent_v1";
 const CONSENT_DEFAULT_SCOPES = ["daily_log", "profile", "doctor_share", "safety_check", "voice_transcribe"];
@@ -123,6 +127,7 @@ let safetyService;
 let providerMatchingService;
 let doctorSummaryService;
 let doctorAuthService;
+let patientAuthService;
 let auditLogService;
 let healthChatService;
 
@@ -190,6 +195,12 @@ async function bootstrapConfig() {
     windowMs: LOGIN_RATE_LIMIT_WINDOW_MS,
     lockMs: LOGIN_RATE_LIMIT_LOCK_MS,
     secureCookie: DOCTOR_COOKIE_SECURE
+  });
+  patientAuthService = createPatientAuthService({
+    repository: storeRepository,
+    cookieName: PATIENT_SESSION_COOKIE,
+    sessionHours: PATIENT_SESSION_HOURS,
+    secureCookie: PATIENT_COOKIE_SECURE
   });
   auditLogService = createAuditLogService({ repository: storeRepository });
 }
@@ -805,6 +816,27 @@ async function requireDoctorSession(req, res) {
   return null;
 }
 
+async function requirePatientSession(req, res) {
+  const result = patientAuthService.resolveSession(req);
+  if (result.ok) {
+    if (!result.session?.user_id) {
+      sendJson(res, 403, {
+        error: "patient_access_forbidden",
+        message: "この患者アカウントには利用者データが紐づいていません。"
+      });
+      return null;
+    }
+    return result.session;
+  }
+  if (result.reason === "expired") {
+    await storeRepository.persist();
+  }
+  const error = patientAuthService.authErrorPayload(result.reason);
+  const headers = result.clearCookie ? { "Set-Cookie": patientAuthService.buildClearedSessionCookie() } : {};
+  sendJsonWithHeaders(res, error.status, error.body, headers);
+  return null;
+}
+
 function invalidShareTokenPayload() {
   return {
     status: 404,
@@ -1030,10 +1062,122 @@ const server = createServer(async (req, res) => {
           voice_transcribe_enabled: Boolean(OPENAI_API_KEY),
           data_dir: dataDirPath,
           consent_version: CONSENT_VERSION,
+          patient_session_hours: PATIENT_SESSION_HOURS,
           strict_prod_doctor_cred_guard: STRICT_PROD_DOCTOR_CRED_GUARD,
           production_default_doctor_credentials: isProductionLike() && usingDefaultDoctorCredentials()
         }
       });
+    }
+
+    if (method === "GET" && pathname === "/api/v1/patient/auth/me") {
+      const result = patientAuthService.resolveSession(req);
+      if (!result.ok) {
+        const headers = result.clearCookie ? { "Set-Cookie": patientAuthService.buildClearedSessionCookie() } : {};
+        return sendJsonWithHeaders(
+          res,
+          200,
+          {
+            status: "guest",
+            authenticated: false
+          },
+          headers
+        );
+      }
+      return sendJson(res, 200, {
+        status: "ok",
+        authenticated: true,
+        patient: {
+          patient_account_id: result.session.patient_account_id,
+          user_id: result.session.user_id,
+          login_id: result.session.login_id,
+          display_name: result.session.display_name
+        }
+      });
+    }
+
+    if (method === "POST" && pathname === "/api/v1/patient/auth/register") {
+      const body = await parseJsonBody(req);
+      try {
+        const account = patientAuthService.register({
+          login_id: String(body.login_id || ""),
+          password: String(body.password || ""),
+          display_name: String(body.display_name || ""),
+          user_id: String(body.user_id || "")
+        });
+        const session = patientAuthService.issueSession(account);
+        await storeRepository.persist();
+        return sendJsonWithHeaders(
+          res,
+          200,
+          {
+            status: "ok",
+            patient: {
+              patient_account_id: session.patient_account_id,
+              user_id: session.user_id,
+              login_id: session.login_id,
+              display_name: session.display_name
+            }
+          },
+          { "Set-Cookie": patientAuthService.buildSessionCookie(session.session_id) }
+        );
+      } catch (error) {
+        const statusCode = Number(error?.statusCode || 400);
+        const code = String(error?.message || "patient_register_failed");
+        const messages = {
+          missing_login_id: "ログインIDを入力してください。",
+          missing_user_id: "利用者データが見つかりません。画面を再読み込みしてください。",
+          weak_password: "パスワードは6文字以上で入力してください。",
+          login_id_taken: "そのログインIDはすでに使われています。",
+          user_id_already_linked: "このデータはすでに別のログインに紐づいています。ログインしてください。"
+        };
+        return sendJson(res, statusCode, {
+          error: code,
+          message: messages[code] || "登録に失敗しました。入力内容を確認してください。"
+        });
+      }
+    }
+
+    if (method === "POST" && pathname === "/api/v1/patient/auth/login") {
+      const body = await parseJsonBody(req);
+      const account = patientAuthService.authenticate(String(body.login_id || ""), String(body.password || ""));
+      if (!account) {
+        return sendJson(res, 401, {
+          error: "invalid_credentials",
+          message: "ログインIDまたはパスワードが違います。"
+        });
+      }
+      const session = patientAuthService.issueSession(account);
+      await storeRepository.persist();
+      return sendJsonWithHeaders(
+        res,
+        200,
+        {
+          status: "ok",
+          patient: {
+            patient_account_id: session.patient_account_id,
+            user_id: session.user_id,
+            login_id: session.login_id,
+            display_name: session.display_name
+          }
+        },
+        { "Set-Cookie": patientAuthService.buildSessionCookie(session.session_id) }
+      );
+    }
+
+    if (method === "POST" && pathname === "/api/v1/patient/auth/logout") {
+      const result = patientAuthService.resolveSession(req);
+      if (result.ok) {
+        patientAuthService.revokeSessionById(result.session.session_id);
+        await storeRepository.persist();
+      } else if (result.reason === "expired") {
+        await storeRepository.persist();
+      }
+      return sendJsonWithHeaders(
+        res,
+        200,
+        { status: "ok" },
+        { "Set-Cookie": patientAuthService.buildClearedSessionCookie() }
+      );
     }
 
     if (method === "GET" && pathname === "/api/v1/doctor/auth/me") {

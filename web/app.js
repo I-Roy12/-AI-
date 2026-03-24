@@ -64,6 +64,14 @@ const tabRecordBtn = document.querySelector("#tab-record");
 const tabMypageBtn = document.querySelector("#tab-mypage");
 const recordPage = document.querySelector("#record-page");
 const mypagePage = document.querySelector("#mypage-page");
+const patientAuthStatus = document.querySelector("#patient-auth-status");
+const patientAuthForm = document.querySelector("#patient-auth-form");
+const patientDisplayNameInput = document.querySelector("#patient-display-name");
+const patientLoginIdInput = document.querySelector("#patient-login-id");
+const patientPasswordInput = document.querySelector("#patient-password");
+const patientRegisterBtn = document.querySelector("#patient-register-btn");
+const patientLoginBtn = document.querySelector("#patient-login-btn");
+const patientLogoutBtn = document.querySelector("#patient-logout-btn");
 const profileForm = document.querySelector("#profile-form");
 const saveProfileBtn = document.querySelector("#save-profile-btn");
 const resetProfileBtn = document.querySelector("#reset-profile-btn");
@@ -155,6 +163,7 @@ let consultChatHistory = [];
 let consultChatDraftSignature = "";
 let latestConsultChatResult = null;
 let latestDoctorNotes = [];
+let patientAuthState = { authenticated: false, patient: null };
 
 const sliderMeta = {
   symptom_score: {
@@ -815,6 +824,92 @@ async function api(path, options = {}) {
   return data;
 }
 
+function setPatientAuthUi() {
+  if (!patientAuthStatus) return;
+  if (patientAuthState.authenticated && patientAuthState.patient) {
+    const label = patientAuthState.patient.display_name || patientAuthState.patient.login_id || "ログイン中";
+    patientAuthStatus.textContent = `ログイン中: ${label}`;
+    if (patientDisplayNameInput && !patientDisplayNameInput.value) {
+      patientDisplayNameInput.value = patientAuthState.patient.display_name || "";
+    }
+    if (patientLoginIdInput && !patientLoginIdInput.value) {
+      patientLoginIdInput.value = patientAuthState.patient.login_id || "";
+    }
+    return;
+  }
+  patientAuthStatus.textContent = "未ログイン";
+}
+
+async function loadPatientAuthState() {
+  const data = await api("/api/v1/patient/auth/me");
+  patientAuthState = {
+    authenticated: Boolean(data?.authenticated),
+    patient: data?.patient || null
+  };
+  if (patientAuthState.authenticated && patientAuthState.patient?.user_id) {
+    persistUserId(patientAuthState.patient.user_id);
+    setActiveUserId(patientAuthState.patient.user_id);
+  }
+  setPatientAuthUi();
+  return patientAuthState;
+}
+
+async function registerPatientAccount() {
+  const data = await api("/api/v1/patient/auth/register", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      display_name: String(patientDisplayNameInput?.value || "").trim(),
+      login_id: String(patientLoginIdInput?.value || "").trim(),
+      password: String(patientPasswordInput?.value || ""),
+      user_id: getUserId()
+    })
+  });
+  patientAuthState = {
+    authenticated: true,
+    patient: data?.patient || null
+  };
+  if (patientAuthState.patient?.user_id) {
+    persistUserId(patientAuthState.patient.user_id);
+    setActiveUserId(patientAuthState.patient.user_id);
+  }
+  setPatientAuthUi();
+  await Promise.all([refreshOverview().catch(() => {}), loadProfile().catch(() => {}), refreshCalendar().catch(() => {})]);
+  return data;
+}
+
+async function loginPatientAccount() {
+  const data = await api("/api/v1/patient/auth/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      login_id: String(patientLoginIdInput?.value || "").trim(),
+      password: String(patientPasswordInput?.value || "")
+    })
+  });
+  patientAuthState = {
+    authenticated: true,
+    patient: data?.patient || null
+  };
+  if (patientAuthState.patient?.user_id) {
+    persistUserId(patientAuthState.patient.user_id);
+    setActiveUserId(patientAuthState.patient.user_id);
+  }
+  setPatientAuthUi();
+  await Promise.all([refreshOverview().catch(() => {}), loadProfile().catch(() => {}), refreshCalendar().catch(() => {})]);
+  return data;
+}
+
+async function logoutPatientAccount() {
+  await api("/api/v1/patient/auth/logout", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({})
+  });
+  patientAuthState = { authenticated: false, patient: null };
+  setPatientAuthUi();
+}
+
 async function ensureVoiceTranscribeStatus() {
   if (voiceStatusConfigChecked) return voiceTranscribeEnabled;
   try {
@@ -874,9 +969,17 @@ function localizeErrorMessage(raw, statusCode = 0) {
     doctor_auth_required: "医師ログインが必要です。ログイン後に再度お試しください",
     doctor_session_expired: "ログインの有効期限が切れました。再ログインしてください",
     doctor_auth_invalid_session: "認証情報が無効です。再ログインしてください",
+    patient_auth_required: "患者ログインが必要です。ログイン後に再度お試しください",
+    patient_session_expired: "ログインの有効期限が切れました。再ログインしてください",
+    patient_auth_invalid_session: "認証情報が無効です。再ログインしてください",
     "missing token": "共有トークンが見つかりません。リンクを確認してください",
     missing_token: "共有トークンが見つかりません。リンクを確認してください",
-    invalid_credentials: "メールアドレスまたはパスワードが正しくありません",
+    invalid_credentials: "ログイン情報またはパスワードが正しくありません",
+    missing_login_id: "ログインIDを入力してください",
+    missing_user_id: "利用者データが見つかりません。再読み込みしてください",
+    weak_password: "パスワードは6文字以上で入力してください",
+    login_id_taken: "そのログインIDはすでに使われています",
+    user_id_already_linked: "このデータはすでに別のログインに紐づいています。ログインしてください",
     too_many_login_attempts: "操作回数が上限に達しました。しばらく待ってから再試行してください",
     "no logs found": "記録が見つかりません。先に患者側で記録を保存してください",
     invalid_chronic_conditions: "持病の入力が長すぎます。600文字以内で入力してください",
@@ -3391,6 +3494,7 @@ if (doctorFollowupSampleBtn) {
 
 initDatetimeDefault();
 ensureLocalUserId();
+setPatientAuthUi();
 loadDoctorFollowupState();
 loadSettings();
 updateVoiceRouteText();
@@ -3399,6 +3503,9 @@ setRecordEntryExpanded(false);
 initConsultChat();
 refreshOverview().catch(() => {});
 loadProfile().catch(() => {});
+loadPatientAuthState().catch((error) => {
+  reportError("ログイン状態確認エラー", error, patientAuthStatus || null);
+});
 loadLatestConsent().catch((error) => {
   reportError("同意状態確認エラー", error, consentStatus || null);
 });
@@ -3751,6 +3858,59 @@ copyShareBtn.addEventListener("click", async () => {
     copyShareBtn.textContent = before;
   }
 });
+
+if (patientRegisterBtn) {
+  patientRegisterBtn.addEventListener("click", async () => {
+    patientRegisterBtn.disabled = true;
+    const before = patientRegisterBtn.textContent;
+    patientRegisterBtn.textContent = "登録中...";
+    try {
+      await registerPatientAccount();
+      if (patientPasswordInput) patientPasswordInput.value = "";
+      showToast("今のデータを引き継いで新規登録しました");
+    } catch (error) {
+      reportError("新規登録エラー", error, patientAuthStatus);
+    } finally {
+      patientRegisterBtn.disabled = false;
+      patientRegisterBtn.textContent = before;
+    }
+  });
+}
+
+if (patientLoginBtn) {
+  patientLoginBtn.addEventListener("click", async () => {
+    patientLoginBtn.disabled = true;
+    const before = patientLoginBtn.textContent;
+    patientLoginBtn.textContent = "ログイン中...";
+    try {
+      await loginPatientAccount();
+      if (patientPasswordInput) patientPasswordInput.value = "";
+      showToast("ログインしました");
+    } catch (error) {
+      reportError("ログインエラー", error, patientAuthStatus);
+    } finally {
+      patientLoginBtn.disabled = false;
+      patientLoginBtn.textContent = before;
+    }
+  });
+}
+
+if (patientLogoutBtn) {
+  patientLogoutBtn.addEventListener("click", async () => {
+    patientLogoutBtn.disabled = true;
+    const before = patientLogoutBtn.textContent;
+    patientLogoutBtn.textContent = "ログアウト中...";
+    try {
+      await logoutPatientAccount();
+      showToast("ログアウトしました");
+    } catch (error) {
+      reportError("ログアウトエラー", error, patientAuthStatus);
+    } finally {
+      patientLogoutBtn.disabled = false;
+      patientLogoutBtn.textContent = before;
+    }
+  });
+}
 
 if (copyUserIdBtn) {
   copyUserIdBtn.addEventListener("click", async () => {

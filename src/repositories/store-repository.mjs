@@ -6,6 +6,8 @@ function emptyStore() {
     insights: [],
     safetyEvents: [],
     profiles: {},
+    patientAccounts: [],
+    patientSessions: [],
     consents: [],
     shareLinks: [],
     shareAccessLogs: [],
@@ -31,6 +33,8 @@ export function createStoreRepository({ dataDirPath, dataStorePath }) {
     store.insights = asArray(raw.insights);
     store.safetyEvents = asArray(raw.safetyEvents);
     store.profiles = asObject(raw.profiles);
+    store.patientAccounts = asArray(raw.patientAccounts);
+    store.patientSessions = asArray(raw.patientSessions);
     store.consents = asArray(raw.consents);
     store.shareLinks = asArray(raw.shareLinks);
     store.shareAccessLogs = asArray(raw.shareAccessLogs);
@@ -88,6 +92,44 @@ export function createStoreRepository({ dataDirPath, dataStorePath }) {
   function setProfile(userId, profile) {
     store.profiles[userId] = profile;
     return store.profiles[userId];
+  }
+
+  function addPatientAccount(account) {
+    store.patientAccounts.push(account);
+    return account;
+  }
+
+  function findPatientAccountByLoginId(loginId) {
+    return store.patientAccounts.find((item) => item.login_id === loginId) || null;
+  }
+
+  function findPatientAccountByUserId(userId) {
+    return store.patientAccounts.find((item) => item.user_id === userId) || null;
+  }
+
+  function listPatientAccounts() {
+    return store.patientAccounts.slice();
+  }
+
+  function addPatientSession(item) {
+    store.patientSessions.push(item);
+    return item;
+  }
+
+  function prunePatientSessions(nowMs = Date.now()) {
+    store.patientSessions = store.patientSessions.filter((item) => {
+      return new Date(item.expires_at).getTime() > nowMs;
+    });
+  }
+
+  function findPatientSessionById(sessionId) {
+    return store.patientSessions.find((item) => item.session_id === sessionId) || null;
+  }
+
+  function removePatientSessionById(sessionId) {
+    const before = store.patientSessions.length;
+    store.patientSessions = store.patientSessions.filter((item) => item.session_id !== sessionId);
+    return before !== store.patientSessions.length;
   }
 
   function addConsent(item) {
@@ -232,6 +274,14 @@ export function createStoreRepository({ dataDirPath, dataStorePath }) {
     removeLogsByUser,
     getProfile,
     setProfile,
+    addPatientAccount,
+    findPatientAccountByLoginId,
+    findPatientAccountByUserId,
+    listPatientAccounts,
+    addPatientSession,
+    prunePatientSessions,
+    findPatientSessionById,
+    removePatientSessionById,
     addConsent,
     listConsentsByUser,
     getLatestConsentByUser,

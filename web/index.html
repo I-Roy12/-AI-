@@ -290,6 +290,22 @@
 
       <div id="mypage-page" class="hidden">
       <section class="card">
+        <h2>ログインでデータを守る</h2>
+        <p class="sub">新規登録すると、今この端末で使っている記録データにログインを紐づけます。別の端末でも同じログインで続きから使えます。</p>
+        <p id="patient-auth-status" class="last-sync">未ログイン</p>
+        <form id="patient-auth-form">
+          <label>表示名<input id="patient-display-name" placeholder="例: たろう" /></label>
+          <label>ログインID<input id="patient-login-id" placeholder="半角英数字 例: taro01" /></label>
+          <label>パスワード<input id="patient-password" type="password" placeholder="6文字以上" /></label>
+          <div class="review-row">
+            <button id="patient-register-btn" type="button">今のデータで新規登録</button>
+            <button id="patient-login-btn" type="button">ログイン</button>
+            <button id="patient-logout-btn" type="button">ログアウト</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="card">
         <h2>マイプロフィール</h2>
         <p class="sub">この端末では、記録は自動で別の利用者IDに分かれて保存されます。</p>
         <form id="profile-form">
