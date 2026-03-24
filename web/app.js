@@ -78,6 +78,10 @@ const trendChart = document.querySelector("#trend-chart");
 const chartStatus = document.querySelector("#chart-status");
 const exportUserBtn = document.querySelector("#export-user-btn");
 const exportDoctorSummaryBtn = document.querySelector("#export-doctor-summary-btn");
+const userIdBackupInput = document.querySelector("#user-id-backup-input");
+const copyUserIdBtn = document.querySelector("#copy-user-id-btn");
+const restoreUserIdBtn = document.querySelector("#restore-user-id-btn");
+const userIdBackupStatus = document.querySelector("#user-id-backup-status");
 const createShareLinkBtn = document.querySelector("#create-share-link-btn");
 const shareStatus = document.querySelector("#share-status");
 const shareLinksList = document.querySelector("#share-links-list");
@@ -122,6 +126,7 @@ const userScopeStatus = document.querySelector("#user-scope-status");
 const speechSynthesisSupported = "speechSynthesis" in window;
 const settingsKey = "health_journal_ui_settings_v1";
 const userIdStorageKey = "health_journal_user_id_v1";
+const userIdBackupStorageKey = "health_journal_user_id_backup_v1";
 const userIdCookieName = "health_journal_user_id";
 const doctorFollowupStoragePrefix = "health_doctor_followup_v1";
 const maxImageBytes = 3 * 1024 * 1024;
@@ -1029,6 +1034,12 @@ function persistUserId(userId) {
   if (!normalized) return;
   try {
     localStorage.setItem(userIdStorageKey, normalized);
+    localStorage.setItem(userIdBackupStorageKey, normalized);
+  } catch (_) {
+    // ignore
+  }
+  try {
+    sessionStorage.setItem(userIdStorageKey, normalized);
   } catch (_) {
     // ignore
   }
@@ -1043,6 +1054,7 @@ function setActiveUserId(userId) {
   const normalized = String(userId || "").trim();
   const hidden = form.querySelector("[name=user_id]");
   if (hidden) hidden.value = normalized;
+  if (userIdBackupInput) userIdBackupInput.value = normalized;
   if (userScopeStatus) {
     userScopeStatus.textContent = normalized
       ? `この端末の利用者ID: ${normalized}`
@@ -1059,6 +1071,20 @@ function ensureLocalUserId() {
   }
   if (!userId) {
     try {
+      userId = String(localStorage.getItem(userIdBackupStorageKey) || "").trim();
+    } catch (_) {
+      userId = "";
+    }
+  }
+  if (!userId) {
+    try {
+      userId = String(sessionStorage.getItem(userIdStorageKey) || "").trim();
+    } catch (_) {
+      userId = "";
+    }
+  }
+  if (!userId) {
+    try {
       userId = decodeURIComponent(readCookie(userIdCookieName) || "").trim();
     } catch (_) {
       userId = "";
@@ -1070,6 +1096,30 @@ function ensureLocalUserId() {
   persistUserId(userId);
   setActiveUserId(userId);
   return userId;
+}
+
+function setUserIdBackupStatus(text = "未操作") {
+  if (userIdBackupStatus) userIdBackupStatus.textContent = text;
+}
+
+async function restoreUserIdFromInput() {
+  const nextUserId = String(userIdBackupInput?.value || "").trim();
+  if (!nextUserId) {
+    setUserIdBackupStatus("利用者IDを入力または貼り付けしてください");
+    showToast("利用者IDを入れてください");
+    return false;
+  }
+  persistUserId(nextUserId);
+  setActiveUserId(nextUserId);
+  clearEditMode({ keepForm: false });
+  initDatetimeDefault();
+  await Promise.all([
+    refreshOverview().catch(() => {}),
+    loadProfile().catch(() => {}),
+    refreshCalendar().catch(() => {})
+  ]);
+  setUserIdBackupStatus("この利用者IDで復元しました");
+  return true;
 }
 
 function getRecordedDate() {
@@ -2335,11 +2385,34 @@ function renderCalendar(month, items) {
     const item = byDate.get(date);
     const cell = document.createElement("div");
     cell.className = "calendar-cell";
-    if (item) cell.classList.add("has-log");
+    if (item) cell.classList.add("has-log", "is-clickable");
     if (item && item.symptom_avg >= 7) cell.classList.add("hard-day");
-    cell.innerHTML = `<strong>${day}</strong>${item ? `<small>${item.count}件</small>` : ""}`;
+    if (item) {
+      cell.dataset.date = date;
+      cell.setAttribute("role", "button");
+      cell.setAttribute("tabindex", "0");
+      cell.setAttribute("aria-label", `${date} の記録を編集`);
+    }
+    cell.innerHTML = `<strong>${day}</strong>${item ? `<small>${item.count}件</small><span class="calendar-hint">編集</span>` : ""}`;
     calendarGrid.append(cell);
   }
+}
+
+async function openCalendarDateForEdit(date) {
+  if (!date) return;
+  reviewDate.value = date;
+  const data = await loadByDate(date);
+  if (!data.item) {
+    reviewView.textContent = "その日の記録はまだありません。";
+    if (reviewEditBtn) reviewEditBtn.classList.add("hidden");
+    reviewedLogItem = null;
+    showToast("その日の記録はまだありません");
+    return;
+  }
+  reviewedLogItem = data.item;
+  if (reviewEditBtn) reviewEditBtn.classList.remove("hidden");
+  reviewView.textContent = `${data.item.recorded_at} / 症状: ${formatSymptomsDisplay(data.item.symptoms)} / つらさ${data.item.symptom_score} / 気分${data.item.mood_score} / メモ: ${data.item.note || "-"}`;
+  enterEditMode(data.item, date);
 }
 
 async function refreshCalendar() {
@@ -3339,6 +3412,31 @@ calendarBtn.addEventListener("click", async () => {
   }
 });
 
+if (calendarGrid) {
+  calendarGrid.addEventListener("click", async (event) => {
+    const cell = event.target instanceof Element ? event.target.closest(".calendar-cell.is-clickable[data-date]") : null;
+    if (!cell) return;
+    try {
+      await openCalendarDateForEdit(String(cell.getAttribute("data-date") || ""));
+    } catch (error) {
+      reportError("カレンダー編集読込エラー", error);
+    }
+  });
+
+  calendarGrid.addEventListener("keydown", async (event) => {
+    if (!(event.target instanceof Element)) return;
+    const cell = event.target.closest(".calendar-cell.is-clickable[data-date]");
+    if (!cell) return;
+    if (event.key !== "Enter" && event.key !== " ") return;
+    event.preventDefault();
+    try {
+      await openCalendarDateForEdit(String(cell.getAttribute("data-date") || ""));
+    } catch (error) {
+      reportError("カレンダー編集読込エラー", error);
+    }
+  });
+}
+
 if (ensureRecognition()) {
   voiceBtn.addEventListener("click", () => {
     if (!recognition) return;
@@ -3653,6 +3751,40 @@ copyShareBtn.addEventListener("click", async () => {
     copyShareBtn.textContent = before;
   }
 });
+
+if (copyUserIdBtn) {
+  copyUserIdBtn.addEventListener("click", async () => {
+    copyUserIdBtn.disabled = true;
+    const before = copyUserIdBtn.textContent;
+    copyUserIdBtn.textContent = "コピー中...";
+    try {
+      await copyTextToClipboard(String(userIdBackupInput?.value || getUserId()).trim(), userIdBackupStatus);
+      showToast("利用者IDをコピーしました");
+    } catch (error) {
+      reportError("利用者IDコピーエラー", error, userIdBackupStatus);
+    } finally {
+      copyUserIdBtn.disabled = false;
+      copyUserIdBtn.textContent = before;
+    }
+  });
+}
+
+if (restoreUserIdBtn) {
+  restoreUserIdBtn.addEventListener("click", async () => {
+    restoreUserIdBtn.disabled = true;
+    const before = restoreUserIdBtn.textContent;
+    restoreUserIdBtn.textContent = "復元中...";
+    try {
+      const restored = await restoreUserIdFromInput();
+      if (restored) showToast("この利用者IDでデータを復元しました");
+    } catch (error) {
+      reportError("利用者ID復元エラー", error, userIdBackupStatus);
+    } finally {
+      restoreUserIdBtn.disabled = false;
+      restoreUserIdBtn.textContent = before;
+    }
+  });
+}
 
 if (consultChatShareBtn) {
   consultChatShareBtn.addEventListener("click", async () => {

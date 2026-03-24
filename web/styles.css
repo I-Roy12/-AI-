@@ -1006,6 +1006,14 @@ input[type="range"]::-moz-range-thumb {
   gap: 4px;
 }
 
+.calendar-cell.is-clickable {
+  cursor: pointer;
+}
+
+.calendar-cell.is-clickable:hover {
+  background: #fff4e8;
+}
+
 .calendar-cell.blank {
   border-color: transparent;
   background: transparent;
@@ -1024,6 +1032,12 @@ input[type="range"]::-moz-range-thumb {
 .calendar-cell small {
   color: var(--muted);
   font-size: 11px;
+}
+
+.calendar-cell .calendar-hint {
+  color: #8a6441;
+  font-size: 10px;
+  font-weight: 600;
 }
 
 .voice-box {

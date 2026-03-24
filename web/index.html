@@ -330,6 +330,7 @@
 
       <section class="card">
         <h2>月の記録カレンダー</h2>
+        <p class="sub">記録がある日はタップすると、その日の記録をすぐ編集できます。</p>
         <div class="review-row">
           <input type="month" id="calendar-month" />
           <button id="calendar-btn">カレンダー更新</button>
@@ -361,6 +362,16 @@
 
       <section class="card">
         <h2>データ管理</h2>
+        <p class="sub">更新に備えて、この端末の利用者IDを控えておくとデータを復元しやすくなります。</p>
+        <label>
+          この端末の利用者ID
+          <input id="user-id-backup-input" placeholder="ここに利用者IDを貼り付けても復元できます" />
+        </label>
+        <div class="review-row">
+          <button id="copy-user-id-btn" type="button">利用者IDをコピー</button>
+          <button id="restore-user-id-btn" type="button">このIDで復元</button>
+          <p id="user-id-backup-status" class="last-sync">未操作</p>
+        </div>
         <p class="sub">バックアップ用途として、あなたのデータをJSONで保存できます。</p>
         <div class="review-row">
           <button id="export-user-btn">データをJSONで保存</button>
