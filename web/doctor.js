@@ -21,10 +21,6 @@ const doctorLogoutBtn = document.querySelector("#doctor-logout-btn");
 const doctorQueueRefreshBtn = document.querySelector("#doctor-queue-refresh-btn");
 const doctorQueueStatus = document.querySelector("#doctor-queue-status");
 const doctorQueueList = document.querySelector("#doctor-queue-list");
-const doctorFeedbackRefreshBtn = document.querySelector("#doctor-feedback-refresh-btn");
-const doctorFeedbackStatus = document.querySelector("#doctor-feedback-status");
-const doctorFeedbackSummary = document.querySelector("#doctor-feedback-summary");
-const doctorFeedbackList = document.querySelector("#doctor-feedback-list");
 const triageView = document.querySelector("#triage-view");
 const patientView = document.querySelector("#patient-view");
 const periodView = document.querySelector("#period-view");
@@ -119,43 +115,6 @@ async function ensureDoctorAuth() {
     window.location.href = `/doctor-login?next=${encodeURIComponent(next)}`;
     return false;
   }
-}
-
-function formatFeedbackCategory(category) {
-  const map = {
-    general: "全体の感想",
-    ui: "使いやすさ",
-    chat: "チャット相談",
-    record: "記録機能",
-    share: "共有・医師向け機能",
-    bug: "不具合"
-  };
-  return map[String(category || "").trim()] || String(category || "その他");
-}
-
-function renderFeedbackList(data) {
-  if (!doctorFeedbackList || !doctorFeedbackSummary || !doctorFeedbackStatus) return;
-  const items = Array.isArray(data?.items) ? data.items : [];
-  doctorFeedbackList.innerHTML = "";
-  doctorFeedbackSummary.textContent = `平均満足度: ${Number(data?.avg_rating || 0).toFixed(1)} / 5 (${items.length}件)`;
-  doctorFeedbackStatus.textContent = `更新: ${new Date(data?.generated_at || Date.now()).toLocaleString("ja-JP")}`;
-  if (!items.length) {
-    const li = document.createElement("li");
-    li.textContent = "まだフィードバックはありません";
-    doctorFeedbackList.append(li);
-    return;
-  }
-  for (const item of items) {
-    const li = document.createElement("li");
-    li.textContent = `${new Date(item.created_at).toLocaleString("ja-JP")} / ★${item.rating} / ${formatFeedbackCategory(item.category)} / ${item.comment}`;
-    doctorFeedbackList.append(li);
-  }
-}
-
-async function loadFeedbackList() {
-  const data = await api("/api/v1/doctor/feedback?limit=100");
-  renderFeedbackList(data);
-  return data;
 }
 
 function renderList(el, items, mapper) {
@@ -687,7 +646,6 @@ const initialToken = params.get("token") || "";
 ensureDoctorAuth().then((ok) => {
   if (!ok) return;
   loadDoctorQueue().catch(() => {});
-  loadFeedbackList().catch(() => {});
   if (initialToken) {
     tokenInput.value = initialToken;
     loadDoctorView(initialToken).catch(() => {});
@@ -707,12 +665,6 @@ if (doctorHandoffCreateBtn) {
 if (doctorQueueRefreshBtn) {
   doctorQueueRefreshBtn.addEventListener("click", () => {
     loadDoctorQueue().catch(() => {});
-  });
-}
-
-if (doctorFeedbackRefreshBtn) {
-  doctorFeedbackRefreshBtn.addEventListener("click", () => {
-    loadFeedbackList().catch(() => {});
   });
 }
 

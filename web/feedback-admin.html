@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>体調日記 フィードバック管理</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="container doctor-container">
+      <h1>体調日記 フィードバック管理</h1>
+      <p class="sub">開発改善のための感想・要望・不具合報告を確認する運営用ページです。</p>
+
+      <section class="card">
+        <div class="review-row">
+          <p id="feedback-admin-me" class="last-sync">運営: -</p>
+          <button id="feedback-admin-logout-btn" type="button">ログアウト</button>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="review-row">
+          <button id="feedback-admin-refresh-btn" type="button">フィードバック更新</button>
+          <p id="feedback-admin-status" class="last-sync">未更新</p>
+        </div>
+        <p id="feedback-admin-summary" class="last-sync">平均満足度: -</p>
+        <ul id="feedback-admin-list" class="recent-list">
+          <li>まだフィードバックはありません</li>
+        </ul>
+      </section>
+    </main>
+
+    <script src="/feedback-admin.js" type="module"></script>
+  </body>
+</html>

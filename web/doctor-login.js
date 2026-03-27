@@ -29,7 +29,10 @@ function localizeLoginError(error) {
 function nextPath() {
   const params = new URLSearchParams(window.location.search);
   const next = params.get("next");
-  if (!next || !next.startsWith("/doctor")) return "/doctor";
+  const allowed =
+    next &&
+    (next.startsWith("/doctor") || next.startsWith("/feedback-admin"));
+  if (!allowed) return "/doctor";
   return next;
 }
 

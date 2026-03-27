@@ -52,9 +52,11 @@ const symptomMapPath = path.join(ROOT, "core/config/symptom-category-map-v0.1.js
 const webIndexPath = path.join(ROOT, "web/index.html");
 const webDoctorPath = path.join(ROOT, "web/doctor.html");
 const webDoctorLoginPath = path.join(ROOT, "web/doctor-login.html");
+const webFeedbackAdminPath = path.join(ROOT, "web/feedback-admin.html");
 const webAppPath = path.join(ROOT, "web/app.js");
 const webDoctorAppPath = path.join(ROOT, "web/doctor.js");
 const webDoctorLoginAppPath = path.join(ROOT, "web/doctor-login.js");
+const webFeedbackAdminAppPath = path.join(ROOT, "web/feedback-admin.js");
 const webStylePath = path.join(ROOT, "web/styles.css");
 const webManifestPath = path.join(ROOT, "web/manifest.webmanifest");
 const webSwPath = path.join(ROOT, "web/sw.js");
@@ -1762,6 +1764,19 @@ const server = createServer(async (req, res) => {
       return sendText(res, 200, html, "text/html");
     }
 
+    if (method === "GET" && pathname === "/feedback-admin") {
+      const sessionResult = doctorAuthService.resolveSession(req);
+      if (!sessionResult.ok) {
+        if (sessionResult.reason === "expired") {
+          await storeRepository.persist();
+        }
+        const nextPath = `${pathname}${requestUrl.search || ""}`;
+        return sendRedirect(res, `/doctor-login?next=${encodeURIComponent(nextPath)}`);
+      }
+      const html = await readFile(webFeedbackAdminPath, "utf8");
+      return sendText(res, 200, html, "text/html");
+    }
+
     if (method === "GET" && pathname === "/app.js") {
       const js = await readFile(webAppPath, "utf8");
       return sendText(res, 200, js, "text/javascript");
@@ -1774,6 +1789,11 @@ const server = createServer(async (req, res) => {
 
     if (method === "GET" && pathname === "/doctor-login.js") {
       const js = await readFile(webDoctorLoginAppPath, "utf8");
+      return sendText(res, 200, js, "text/javascript");
+    }
+
+    if (method === "GET" && pathname === "/feedback-admin.js") {
+      const js = await readFile(webFeedbackAdminAppPath, "utf8");
       return sendText(res, 200, js, "text/javascript");
     }
 
