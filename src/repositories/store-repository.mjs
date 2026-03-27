@@ -9,6 +9,7 @@ function emptyStore() {
     patientAccounts: [],
     patientSessions: [],
     consents: [],
+    feedbackItems: [],
     shareLinks: [],
     shareAccessLogs: [],
     doctorNotes: [],
@@ -36,6 +37,7 @@ export function createStoreRepository({ dataDirPath, dataStorePath }) {
     store.patientAccounts = asArray(raw.patientAccounts);
     store.patientSessions = asArray(raw.patientSessions);
     store.consents = asArray(raw.consents);
+    store.feedbackItems = asArray(raw.feedbackItems);
     store.shareLinks = asArray(raw.shareLinks);
     store.shareAccessLogs = asArray(raw.shareAccessLogs);
     store.doctorNotes = asArray(raw.doctorNotes);
@@ -153,6 +155,23 @@ export function createStoreRepository({ dataDirPath, dataStorePath }) {
 
   function removeConsentsByUser(userId) {
     store.consents = store.consents.filter((item) => item.user_id !== userId);
+  }
+
+  function addFeedback(item) {
+    store.feedbackItems.push(item);
+    return item;
+  }
+
+  function listFeedback() {
+    return store.feedbackItems.slice();
+  }
+
+  function listFeedbackByUser(userId) {
+    return store.feedbackItems.filter((item) => item.user_id === userId);
+  }
+
+  function removeFeedbackByUser(userId) {
+    store.feedbackItems = store.feedbackItems.filter((item) => item.user_id !== userId);
   }
 
   function listInsightsByUser(userId) {
@@ -286,6 +305,10 @@ export function createStoreRepository({ dataDirPath, dataStorePath }) {
     listConsentsByUser,
     getLatestConsentByUser,
     removeConsentsByUser,
+    addFeedback,
+    listFeedback,
+    listFeedbackByUser,
+    removeFeedbackByUser,
     listInsightsByUser,
     addInsight,
     removeInsightsByUser,

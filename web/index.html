@@ -470,6 +470,40 @@
           <p id="note-disclaimer-status" class="last-sync">未コピー</p>
         </div>
       </section>
+
+      <section class="card">
+        <h2>感想・フィードバック</h2>
+        <p class="sub">使ってみた感想や、分かりづらかった点があれば教えてください。個人情報は書かないでください。</p>
+        <label>
+          満足度
+          <select id="feedback-rating">
+            <option value="5">5 とても良い</option>
+            <option value="4">4 良い</option>
+            <option value="3" selected>3 ふつう</option>
+            <option value="2">2 少し使いにくい</option>
+            <option value="1">1 改善が必要</option>
+          </select>
+        </label>
+        <label>
+          種類
+          <select id="feedback-category">
+            <option value="general" selected>全体の感想</option>
+            <option value="ui">使いやすさ</option>
+            <option value="chat">チャット相談</option>
+            <option value="record">記録機能</option>
+            <option value="share">共有・医師向け機能</option>
+            <option value="bug">不具合</option>
+          </select>
+        </label>
+        <label>
+          感想
+          <textarea id="feedback-comment" placeholder="例: チャットは使いやすかったです。どこを押せば記録に進むか、もう少し分かりやすいとうれしいです。"></textarea>
+        </label>
+        <div class="review-row">
+          <button id="feedback-submit-btn" type="button">感想を送る</button>
+          <p id="feedback-status" class="last-sync">未送信</p>
+        </div>
+      </section>
       </div>
     </main>
 

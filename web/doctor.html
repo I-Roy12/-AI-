@@ -111,6 +111,19 @@
       </section>
 
       <section class="card">
+        <h2>利用者フィードバック</h2>
+        <p class="sub">体調日記を使った感想や改善要望を確認できます。</p>
+        <div class="review-row">
+          <button id="doctor-feedback-refresh-btn" type="button">フィードバック更新</button>
+          <p id="doctor-feedback-status" class="last-sync">未更新</p>
+        </div>
+        <p id="doctor-feedback-summary" class="last-sync">平均満足度: -</p>
+        <ul id="doctor-feedback-list" class="recent-list">
+          <li>まだフィードバックはありません</li>
+        </ul>
+      </section>
+
+      <section class="card">
         <h2>医師間連携（引き継ぎ）</h2>
         <p class="sub">別の医師へ共有するための引き継ぎリンクを発行できます。</p>
         <label>引き継ぎ先（任意）<input id="doctor-handoff-to" placeholder="例: 循環器内科 / ○○病院" /></label>

@@ -111,6 +111,11 @@ const cleanupStatus = document.querySelector("#cleanup-status");
 const noteDisclaimerText = document.querySelector("#note-disclaimer-text");
 const copyNoteDisclaimerBtn = document.querySelector("#copy-note-disclaimer-btn");
 const noteDisclaimerStatus = document.querySelector("#note-disclaimer-status");
+const feedbackRating = document.querySelector("#feedback-rating");
+const feedbackCategory = document.querySelector("#feedback-category");
+const feedbackComment = document.querySelector("#feedback-comment");
+const feedbackSubmitBtn = document.querySelector("#feedback-submit-btn");
+const feedbackStatus = document.querySelector("#feedback-status");
 const draftNoteBtn = document.querySelector("#draft-note-btn");
 const draftNoteStatus = document.querySelector("#draft-note-status");
 const sleepStartTimeInput = document.querySelector("#sleep-start-time");
@@ -908,6 +913,23 @@ async function logoutPatientAccount() {
   });
   patientAuthState = { authenticated: false, patient: null };
   setPatientAuthUi();
+}
+
+async function submitFeedback() {
+  const payload = {
+    user_id: getUserId(),
+    rating: Number(feedbackRating?.value || 3),
+    category: String(feedbackCategory?.value || "general"),
+    comment: String(feedbackComment?.value || "").trim()
+  };
+  const data = await api("/api/v1/feedback", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+  if (feedbackComment) feedbackComment.value = "";
+  if (feedbackStatus) feedbackStatus.textContent = "送信しました";
+  return data;
 }
 
 async function ensureVoiceTranscribeStatus() {
@@ -3908,6 +3930,23 @@ if (patientLogoutBtn) {
     } finally {
       patientLogoutBtn.disabled = false;
       patientLogoutBtn.textContent = before;
+    }
+  });
+}
+
+if (feedbackSubmitBtn) {
+  feedbackSubmitBtn.addEventListener("click", async () => {
+    feedbackSubmitBtn.disabled = true;
+    const before = feedbackSubmitBtn.textContent;
+    feedbackSubmitBtn.textContent = "送信中...";
+    try {
+      await submitFeedback();
+      showToast("感想を送信しました");
+    } catch (error) {
+      reportError("感想送信エラー", error, feedbackStatus);
+    } finally {
+      feedbackSubmitBtn.disabled = false;
+      feedbackSubmitBtn.textContent = before;
     }
   });
 }

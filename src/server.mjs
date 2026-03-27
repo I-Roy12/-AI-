@@ -1652,6 +1652,47 @@ const server = createServer(async (req, res) => {
       return sendJson(res, 200, { items });
     }
 
+    if (method === "POST" && pathname === "/api/v1/feedback") {
+      const body = await parseJsonBody(req);
+      const userId = String(body.user_id || "").trim();
+      const rating = Math.max(1, Math.min(5, Number(body.rating || 0)));
+      const category = String(body.category || "general").trim().slice(0, 40);
+      const comment = String(body.comment || "").trim().slice(0, 1200);
+      if (!userId) return sendJson(res, 400, { error: "missing user_id" });
+      if (!Number.isFinite(rating) || rating < 1 || rating > 5) {
+        return sendJson(res, 400, { error: "invalid_rating", message: "満足度は1〜5で入力してください。" });
+      }
+      if (!comment) return sendJson(res, 400, { error: "missing_comment", message: "感想を入力してください。" });
+
+      const feedback = {
+        feedback_id: `fb_${randomUUID()}`,
+        user_id: userId,
+        rating,
+        category,
+        comment,
+        created_at: new Date().toISOString()
+      };
+      storeRepository.addFeedback(feedback);
+      await storeRepository.persist();
+      return sendJson(res, 200, { status: "saved", item: feedback });
+    }
+
+    if (method === "GET" && pathname === "/api/v1/doctor/feedback") {
+      const session = await requireDoctorSession(req, res);
+      if (!session) return;
+      const limit = Math.max(10, Math.min(200, Number(requestUrl.searchParams.get("limit") || 100)));
+      const items = storeRepository
+        .listFeedback()
+        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+        .slice(0, limit);
+      return sendJson(res, 200, {
+        generated_at: new Date().toISOString(),
+        total: items.length,
+        avg_rating: average(items.map((item) => Number(item.rating || 0)).filter((item) => Number.isFinite(item))),
+        items
+      });
+    }
+
     if (method === "POST" && pathname === "/api/v1/dev/seed-demo") {
       const body = await parseJsonBody(req);
       const userId = String(body.user_id || "");
